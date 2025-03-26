@@ -1,0 +1,7 @@
+python-telegram-bot
+openai
+python-dotenv
+openai==0.28
+git+https://github.com/openai/whisper.git
+whisper
+
