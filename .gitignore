@@ -24,3 +24,5 @@ Thumbs.db
 # Environment-specific
 *.env
 *.sqlite3
+
+bot_local.py

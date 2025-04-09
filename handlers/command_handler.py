@@ -24,6 +24,7 @@ from services.text_messages import (
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Initial /start command with greeting and keyboard."""
     chat_id = str(update.effective_chat.id)
+    print("🔥 Received /start from", update.effective_chat.id)
 
     # Add user if not exists
     add_user(chat_id)
