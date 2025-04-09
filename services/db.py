@@ -5,15 +5,20 @@ from datetime import datetime
 from config import DATABASE_URL
 import json
 
-# Initialize the database engine and session
-engine = create_engine(DATABASE_URL)
-Session = sessionmaker(bind=engine)
-session = Session()
-
-# Base class for declarative models
 Base = declarative_base()
+_engine = None
+_Session = None
 
-# User table definition
+# Lazily initialize DB engine/session
+def get_session():
+    global _engine, _Session
+    if _engine is None:
+        _engine = create_engine(DATABASE_URL)
+        _Session = sessionmaker(bind=_engine)
+        Base.metadata.create_all(_engine)
+    return _Session()
+
+# User model
 class User(Base):
     __tablename__ = 'users'
 
@@ -24,12 +29,19 @@ class User(Base):
     subscribed_at = Column(DateTime, default=datetime.utcnow)
     started_at = Column(DateTime, default=datetime.utcnow)
 
-# Create the table
-Base.metadata.create_all(engine)
+# Feedback model
+class Feedback(Base):
+    __tablename__ = 'feedback'
 
-# Add a new user
+    id = Column(Integer, primary_key=True)
+    telegram_id = Column(String, nullable=False)
+    message = Column(Text, nullable=False)
+    submitted_at = Column(DateTime, default=datetime.utcnow)
+
+# Database functions
 def add_user(telegram_id):
     telegram_id = str(telegram_id)
+    session = get_session()
     try:
         existing_user = session.query(User).filter_by(telegram_id=telegram_id).first()
         if not existing_user:
@@ -46,16 +58,15 @@ def add_user(telegram_id):
         session.rollback()
         print(f"❌ DB error in add_user: {e}")
 
-# Get user object
 def get_user(telegram_id):
     telegram_id = str(telegram_id)
+    session = get_session()
     try:
         return session.query(User).filter_by(telegram_id=telegram_id).first()
     except Exception as e:
         print(f"❌ DB error in get_user: {e}")
         return None
 
-# Get user state as dict
 def get_user_state(telegram_id):
     user = get_user(telegram_id)
     if user and user.user_state:
@@ -65,9 +76,9 @@ def get_user_state(telegram_id):
             return {}
     return {}
 
-# Update user state
 def update_user_state(telegram_id, data: dict):
     telegram_id = str(telegram_id)
+    session = get_session()
     try:
         user = get_user(telegram_id)
         if user:
@@ -77,9 +88,9 @@ def update_user_state(telegram_id, data: dict):
         session.rollback()
         print(f"❌ DB error in update_user_state: {e}")
 
-# Set subscription status
 def set_subscription_status(telegram_id, is_subscribed: bool):
     telegram_id = str(telegram_id)
+    session = get_session()
     try:
         user = get_user(telegram_id)
         if user:
@@ -91,29 +102,17 @@ def set_subscription_status(telegram_id, is_subscribed: bool):
         session.rollback()
         print(f"❌ DB error in set_subscription_status: {e}")
 
-# Get all subscribed users
 def get_all_subscribed_users():
+    session = get_session()
     try:
         return session.query(User).filter_by(is_subscribed=True).all()
     except Exception as e:
         print(f"❌ DB error in get_all_subscribed_users: {e}")
         return []
-    
-# Feedback table definition
-class Feedback(Base):
-    __tablename__ = 'feedback'
 
-    id = Column(Integer, primary_key=True)
-    telegram_id = Column(String, nullable=False)
-    message = Column(Text, nullable=False)
-    submitted_at = Column(DateTime, default=datetime.utcnow)
-
-# Create feedback table if it doesn't exist
-Base.metadata.create_all(engine)
-
-# Save feedback to the database
 def save_feedback(telegram_id, message: str):
     telegram_id = str(telegram_id)
+    session = get_session()
     try:
         feedback = Feedback(
             telegram_id=telegram_id,

@@ -1,8 +1,6 @@
 import asyncio
 import datetime
 from telegram import Bot
-from services.utils import get_morning_message, get_evening_message
-from services.db import get_all_subscribed_users
 
 async def send_daily_messages(bot: Bot):
     """Continuously sends messages at 08:00 and 21:00 to subscribed users."""
@@ -28,7 +26,10 @@ async def send_daily_messages(bot: Bot):
 
         await asyncio.sleep(wait_seconds)
 
-        # what type of message to send
+        # Lazy import only when needed
+        from services.utils import get_morning_message, get_evening_message
+        from services.db import get_all_subscribed_users
+
         current_hour = next_send_time.hour
         msg = None
         if current_hour == 8:
