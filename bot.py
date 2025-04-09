@@ -7,8 +7,13 @@ from config import TELEGRAM_TOKEN
 
 # This function will run once the bot is fully initialized
 async def post_init(application):
-    # Start the daily scheduled message task (doesn't block the bot)
+    # Launch background task
     asyncio.create_task(send_daily_messages(application.bot))
+
+    # Manually set webhook for Telegram
+    webhook_url = f"https://{os.environ['RENDER_EXTERNAL_HOSTNAME']}/webhook"
+    await application.bot.set_webhook(webhook_url)
+    print("✅ Webhook manually set:", webhook_url)
 
 # Render provides this environment variable automatically
 RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
