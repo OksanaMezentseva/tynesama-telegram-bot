@@ -5,6 +5,7 @@ BTN_AFFIRMATION = "🌸 Афірмація"
 BTN_SUBSCRIBE = "💌 Підписатись"
 BTN_UNSUBSCRIBE = "❌ Відписатись"
 BTN_TOPICS = "🧡 Обрати, що зараз хвилює"
+BTN_FEEDBACK = "💌 Поділитись враженням"
 
 # Topic submenu
 BTN_SOLIDS = "🥣 Прикорм"
