@@ -38,9 +38,8 @@ WEBHOOK_URL = f"https://{RENDER_EXTERNAL_HOSTNAME}{WEBHOOK_PATH}"
 # Build the bot application with webhook support
 app = (
     ApplicationBuilder()
-    .token(TELEGRAM_TOKEN)       # Your Telegram bot token
-    .post_init(post_init)        # Custom logic after startup
-    .webhook_path(WEBHOOK_PATH)  # Set the webhook endpoint path
+    .token(TELEGRAM_TOKEN)
+    .post_init(post_init)
     .build()
 )
 
@@ -51,7 +50,8 @@ log(f"🌐 Bot running on webhook URL: {WEBHOOK_URL}")
 
 # Start the webhook server on Render's provided port
 app.run_webhook(
-    listen="0.0.0.0",  # Listen on all network interfaces
-    port=int(os.environ.get("PORT", 5000)),  # Use Render's assigned port
-    webhook_url=WEBHOOK_URL  # Full webhook URL for Telegram
+    listen="0.0.0.0",
+    port=int(os.environ.get("PORT", 5000)),
+    webhook_url=WEBHOOK_URL,
+    webhook_path=WEBHOOK_PATH
 )
