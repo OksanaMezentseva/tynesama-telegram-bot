@@ -53,5 +53,5 @@ app.run_webhook(
     listen="0.0.0.0",
     port=int(os.environ.get("PORT", 5000)),
     webhook_url=WEBHOOK_URL,
-    path="/webhook"
+    url_path="/webhook"
 )
