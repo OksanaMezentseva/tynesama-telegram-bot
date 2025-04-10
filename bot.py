@@ -52,5 +52,6 @@ log(f"🌐 Bot running on webhook URL: {WEBHOOK_URL}")
 app.run_webhook(
     listen="0.0.0.0",
     port=int(os.environ.get("PORT", 5000)),
-    webhook_url=WEBHOOK_URL
+    webhook_url=WEBHOOK_URL,
+    path="/webhook"
 )
