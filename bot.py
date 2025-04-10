@@ -23,7 +23,7 @@ async def post_init(application):
     webhook_url = f"https://{render_host}/webhook"
 
     # Manually set webhook for Telegram
-    await application.bot.set_webhook(webhook_url, timeout=10)
+    await application.bot.set_webhook(webhook_url)
     log(f"✅ Webhook manually set: {webhook_url}")
 
 # Render provides this environment variable automatically
