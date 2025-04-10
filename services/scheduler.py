@@ -1,10 +1,11 @@
 import asyncio
 import datetime
+import logging
 from telegram import Bot
 
 async def send_daily_messages(bot: Bot):
     """Continuously sends messages at 08:00 and 21:00 to subscribed users."""
-    print("Scheduler started...")
+    logging.info("🕒 Scheduler started...")
 
     while True:
         now = datetime.datetime.now()
@@ -18,15 +19,13 @@ async def send_daily_messages(bot: Bot):
         if now >= next_evening:
             next_evening += datetime.timedelta(days=1)
 
-        # Determine what will happen next — morning or evening
         next_send_time = min(next_morning, next_evening)
         wait_seconds = (next_send_time - now).total_seconds()
 
-        print(f"Next message scheduled at {next_send_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logging.info(f"📆 Next message scheduled at {next_send_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
         await asyncio.sleep(wait_seconds)
 
-        # Lazy import only when needed
         from services.utils import get_morning_message, get_evening_message
         from services.db import get_all_subscribed_users
 
@@ -43,6 +42,6 @@ async def send_daily_messages(bot: Bot):
                 try:
                     await bot.send_message(chat_id=int(user.telegram_id), text=msg)
                 except Exception as e:
-                    print(f"❌ Failed to send to {user.telegram_id}: {e}")
+                    logging.warning(f"❌ Failed to send message to {user.telegram_id}: {e}")
 
-        await asyncio.sleep(60)  # Safety pause to avoid rapid re-sending
+        await asyncio.sleep(60)

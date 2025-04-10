@@ -1,12 +1,13 @@
 import os
 import openai
+import logging
 
 # Optional: only load .env if running locally
 if os.environ.get("ENV") != "production":
     from dotenv import load_dotenv
     load_dotenv()
 
-# Get key from env (whether local or from Render)
+# Get key from env (whether local or Render)
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 SYSTEM_PROMPT = (
@@ -22,9 +23,12 @@ def ask_gpt(user_input: str) -> str:
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_input}
             ],
-            timeout=10  # optional: prevent hanging forever
+            timeout=10  # prevent long hanging
         )
-        return response["choices"][0]["message"]["content"]
+        reply = response["choices"][0]["message"]["content"]
+        logging.info("🧠 GPT responded successfully")
+        return reply
+
     except Exception as e:
-        # You could also log the exception here
+        logging.warning(f"❌ GPT error: {e}")
         return "Вибач, зараз я не можу відповісти. Спробуй трохи пізніше 💛"

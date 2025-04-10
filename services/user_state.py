@@ -1,4 +1,5 @@
 import json
+import logging
 from services.db import get_user, update_user_state
 
 class UserStateManager:
@@ -12,11 +13,13 @@ class UserStateManager:
             try:
                 return json.loads(user.user_state)
             except json.JSONDecodeError:
+                logging.warning(f"⚠️ Failed to decode state for user {self.telegram_id}")
                 return {}
         return {}
 
     def _save_state(self):
         update_user_state(self.telegram_id, self._state)
+        logging.debug(f"💾 State saved for user {self.telegram_id}")
 
     def get_state(self) -> dict:
         return self._state
@@ -59,6 +62,7 @@ class UserStateManager:
         self._state["gpt_reply_count"] = self._state.get("gpt_reply_count", 0) + 1
 
         self._save_state()
+        logging.debug(f"🧠 GPT interaction added for user {self.telegram_id}, topic: {topic}")
 
     def get_gpt_history(self, topic: str = None):
         if topic is None:

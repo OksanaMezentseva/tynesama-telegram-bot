@@ -1,6 +1,8 @@
+import logging
 from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import ContextTypes
+
 from services.db import add_user, get_user, update_user_state
-from telegram.ext import ContextTypes, CommandHandler
 from services.subscription import add_subscriber, remove_subscriber, is_subscribed
 from services.user_state import UserStateManager
 from services.button_labels import (
@@ -24,23 +26,19 @@ from services.text_messages import (
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Initial /start command with greeting and keyboard."""
     chat_id = str(update.effective_chat.id)
-    print("🔥 Received /start from", update.effective_chat.id)
 
-    # Add user if not exists
     add_user(chat_id)
-
-    # Update user_state: step = started
     state = UserStateManager(chat_id)
     state.set_step("started")
 
     await update_reply_keyboard(update, context, message=GREETING_TEXT)
 
-
 async def update_reply_keyboard(update: Update, context: ContextTypes.DEFAULT_TYPE, message: str = DEFAULT_UPDATE_TEXT):
     """Update reply keyboard based on subscription status."""
     chat_id = str(update.effective_chat.id)
+    subscribed = is_subscribed(chat_id)
 
-    if is_subscribed(chat_id):
+    if subscribed:
         keyboard = [
             [BTN_TALK, BTN_TOPICS],
             [BTN_BREATHING, BTN_AFFIRMATION],
@@ -54,12 +52,7 @@ async def update_reply_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
         ]
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-    await update.message.reply_text(
-        message,
-        reply_markup=reply_markup
-    )
-
+    await update.message.reply_text(message, reply_markup=reply_markup)
 
 async def subscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle user subscription."""
@@ -71,7 +64,6 @@ async def subscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update_reply_keyboard(update, context, message=ALREADY_SUBSCRIBED_TEXT)
 
-
 async def unsubscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle user unsubscription."""
     chat_id = str(update.effective_chat.id)
@@ -82,12 +74,11 @@ async def unsubscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     else:
         await update_reply_keyboard(update, context, message=ALREADY_UNSUBSCRIBED_TEXT)
 
-
 async def test_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
     telegram_id = str(update.effective_chat.id)
 
-    # Allow only your ID to run this command
     if telegram_id != "790924168":
+        logging.warning(f"⛔ Unauthorized access attempt to /testdb by {telegram_id}")
         await update.message.reply_text("⛔️ You are not allowed to run this command.")
         return
 

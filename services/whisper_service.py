@@ -8,6 +8,7 @@ def get_model():
     if _model is None:
         import whisper  # lazy import
         _model = whisper.load_model("small")
+        logging.info("🌀 Whisper model loaded (small)")
     return _model
 
 def transcribe_voice(wav_file: str) -> str:
@@ -15,7 +16,6 @@ def transcribe_voice(wav_file: str) -> str:
     Transcribes a given WAV audio file using OpenAI Whisper.
     Loads the model only on first use.
     """
-
     try:
         model = get_model()
 
@@ -30,10 +30,10 @@ def transcribe_voice(wav_file: str) -> str:
         detected_lang = result.get("language")
 
         if detected_lang != "uk":
-            logging.info(f"Whisper detected language: {detected_lang}, expected: 'uk'")
+            logging.info(f"🌍 Whisper detected language: {detected_lang}, expected: 'uk'")
 
         return text
 
     except Exception as e:
-        logging.error(f"Whisper transcription error: {e}")
+        logging.error(f"❌ Whisper transcription error: {e}")
         return ""

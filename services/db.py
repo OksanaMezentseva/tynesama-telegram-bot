@@ -1,9 +1,10 @@
+import logging
+import json
+from datetime import datetime
 from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from datetime import datetime
 from config import DATABASE_URL
-import json
 
 Base = declarative_base()
 _engine = None
@@ -13,9 +14,14 @@ _Session = None
 def get_session():
     global _engine, _Session
     if _engine is None:
-        _engine = create_engine(DATABASE_URL)
+        _engine = create_engine(
+            DATABASE_URL,
+            pool_pre_ping=True,
+            pool_recycle=1800
+        )
         _Session = sessionmaker(bind=_engine)
         Base.metadata.create_all(_engine)
+        logging.info("🗃️ Database engine initialized")
     return _Session()
 
 # User model
@@ -54,9 +60,10 @@ def add_user(telegram_id):
             )
             session.add(user)
             session.commit()
+            logging.info(f"👤 New user added: {telegram_id}")
     except Exception as e:
         session.rollback()
-        print(f"❌ DB error in add_user: {e}")
+        logging.warning(f"❌ DB error in add_user: {e}")
 
 def get_user(telegram_id):
     telegram_id = str(telegram_id)
@@ -64,7 +71,7 @@ def get_user(telegram_id):
     try:
         return session.query(User).filter_by(telegram_id=telegram_id).first()
     except Exception as e:
-        print(f"❌ DB error in get_user: {e}")
+        logging.warning(f"❌ DB error in get_user: {e}")
         return None
 
 def get_user_state(telegram_id):
@@ -73,6 +80,7 @@ def get_user_state(telegram_id):
         try:
             return json.loads(user.user_state)
         except json.JSONDecodeError:
+            logging.warning(f"⚠️ Corrupted user_state for {telegram_id}")
             return {}
     return {}
 
@@ -86,7 +94,7 @@ def update_user_state(telegram_id, data: dict):
             session.commit()
     except Exception as e:
         session.rollback()
-        print(f"❌ DB error in update_user_state: {e}")
+        logging.warning(f"❌ DB error in update_user_state: {e}")
 
 def set_subscription_status(telegram_id, is_subscribed: bool):
     telegram_id = str(telegram_id)
@@ -98,16 +106,17 @@ def set_subscription_status(telegram_id, is_subscribed: bool):
             if is_subscribed:
                 user.subscribed_at = datetime.utcnow()
             session.commit()
+            logging.info(f"🔔 Subscription updated: {telegram_id} -> {is_subscribed}")
     except Exception as e:
         session.rollback()
-        print(f"❌ DB error in set_subscription_status: {e}")
+        logging.warning(f"❌ DB error in set_subscription_status: {e}")
 
 def get_all_subscribed_users():
     session = get_session()
     try:
         return session.query(User).filter_by(is_subscribed=True).all()
     except Exception as e:
-        print(f"❌ DB error in get_all_subscribed_users: {e}")
+        logging.warning(f"❌ DB error in get_all_subscribed_users: {e}")
         return []
 
 def save_feedback(telegram_id, message: str):
@@ -121,7 +130,7 @@ def save_feedback(telegram_id, message: str):
         )
         session.add(feedback)
         session.commit()
-        print("✅ Feedback saved to database.")
+        logging.info(f"💬 Feedback saved from user {telegram_id}")
     except Exception as e:
         session.rollback()
-        print(f"❌ DB error in save_feedback: {e}")
+        logging.warning(f"❌ DB error in save_feedback: {e}")
