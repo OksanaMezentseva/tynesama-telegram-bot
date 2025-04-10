@@ -64,6 +64,8 @@ def add_user(telegram_id):
     except Exception as e:
         session.rollback()
         logging.warning(f"❌ DB error in add_user: {e}")
+    finally:
+        session.close()
 
 def get_user(telegram_id):
     telegram_id = str(telegram_id)
@@ -73,6 +75,8 @@ def get_user(telegram_id):
     except Exception as e:
         logging.warning(f"❌ DB error in get_user: {e}")
         return None
+    finally:
+        session.close()
 
 def get_user_state(telegram_id):
     user = get_user(telegram_id)
@@ -88,19 +92,21 @@ def update_user_state(telegram_id, data: dict):
     telegram_id = str(telegram_id)
     session = get_session()
     try:
-        user = get_user(telegram_id)
+        user = session.query(User).filter_by(telegram_id=telegram_id).first()
         if user:
             user.user_state = json.dumps(data)
             session.commit()
     except Exception as e:
         session.rollback()
         logging.warning(f"❌ DB error in update_user_state: {e}")
+    finally:
+        session.close()
 
 def set_subscription_status(telegram_id, is_subscribed: bool):
     telegram_id = str(telegram_id)
     session = get_session()
     try:
-        user = get_user(telegram_id)
+        user = session.query(User).filter_by(telegram_id=telegram_id).first()
         if user:
             user.is_subscribed = is_subscribed
             if is_subscribed:
@@ -110,6 +116,8 @@ def set_subscription_status(telegram_id, is_subscribed: bool):
     except Exception as e:
         session.rollback()
         logging.warning(f"❌ DB error in set_subscription_status: {e}")
+    finally:
+        session.close()
 
 def get_all_subscribed_users():
     session = get_session()
@@ -118,6 +126,8 @@ def get_all_subscribed_users():
     except Exception as e:
         logging.warning(f"❌ DB error in get_all_subscribed_users: {e}")
         return []
+    finally:
+        session.close()
 
 def save_feedback(telegram_id, message: str):
     telegram_id = str(telegram_id)
@@ -134,3 +144,5 @@ def save_feedback(telegram_id, message: str):
     except Exception as e:
         session.rollback()
         logging.warning(f"❌ DB error in save_feedback: {e}")
+    finally:
+        session.close()

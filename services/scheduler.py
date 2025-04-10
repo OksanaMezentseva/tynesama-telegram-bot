@@ -30,18 +30,20 @@ async def send_daily_messages(bot: Bot):
         from services.db import get_all_subscribed_users
 
         current_hour = next_send_time.hour
-        msg = None
-        if current_hour == 8:
-            msg = get_morning_message()
-        elif current_hour == 21:
-            msg = get_evening_message()
+        msg = get_morning_message() if current_hour == 8 else get_evening_message()
 
-        if msg:
+        if not msg:
+            logging.warning("⚠️ No message generated, skipping broadcast.")
+            continue
+
+        try:
             subscribers = get_all_subscribed_users()
             for user in subscribers:
                 try:
                     await bot.send_message(chat_id=int(user.telegram_id), text=msg)
                 except Exception as e:
                     logging.warning(f"❌ Failed to send message to {user.telegram_id}: {e}")
+        except Exception as e:
+            logging.error(f"❌ Error retrieving or sending messages: {e}")
 
-        await asyncio.sleep(60)
+        await asyncio.sleep(60)  # Safety pause to avoid duplicate sends

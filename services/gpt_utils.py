@@ -1,25 +1,35 @@
-import openai
 import logging
-from openai.error import Timeout
+import os
+import openai
+from services.user_state import UserStateManager
+
+# Load API key
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
-def ask_gpt_with_history(messages: list, timeout: int = 10) -> str:
+def ask_gpt_with_history(state: UserStateManager, user_input: str, system_prompt: str) -> str:
     """
-    Sends a list of messages to GPT and returns the reply.
-    Handles timeout and general errors gracefully.
+    Generate a GPT reply using the given state, user input, and prompt.
+    Appends last 3 interactions from history for context.
     """
+    topic = state.get("topic")
+    history = state.get_gpt_history(topic)
+
+    messages = [{"role": "system", "content": system_prompt}]
+    for pair in history[-3:]:
+        messages.append({"role": "user", "content": pair["question"]})
+        messages.append({"role": "assistant", "content": pair["reply"]})
+    messages.append({"role": "user", "content": user_input})
+
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=messages,
-            timeout=timeout  # Set timeout to avoid long waits
+            timeout=10  # prevent long waits or blocking
         )
-        return response["choices"][0]["message"]["content"]
-
-    except Timeout:
-        logging.warning("⏱ GPT request timed out.")
-        return "GPT відповідає повільно. Спробуй ще раз трохи пізніше ⏳"
-
+        bot_reply = response["choices"][0]["message"]["content"]
+        state.add_gpt_interaction(user_input, bot_reply)
+        return bot_reply
     except Exception as e:
-        logging.error(f"❌ GPT general error: {e}")
-        return "⚠️ Щось пішло не так. Спробуй ще раз пізніше."
+        logging.warning(f"❌ GPT error: {e}")
+        raise

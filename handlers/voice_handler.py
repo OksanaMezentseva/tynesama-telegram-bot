@@ -8,6 +8,7 @@ from telegram.ext import ContextTypes
 from services.whisper_service import transcribe_voice
 from services.subscription import is_subscribed
 from services.user_state import UserStateManager
+from services.gpt_utils import ask_gpt_with_history  # Import the new function
 from services.text_messages import (
     SYSTEM_PROMPT,
     SYSTEM_PROMPT_BREASTFEEDING,
@@ -67,25 +68,11 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
     finally:
         subprocess.run(["rm", ogg_file, wav_file])
 
-    # GPT interaction
-    history = state.get_gpt_history(topic)
-    messages = [{"role": "system", "content": system_prompt}]
-    for pair in history[-3:]:
-        messages.append({"role": "user", "content": pair["question"]})
-        messages.append({"role": "assistant", "content": pair["reply"]})
-    messages.append({"role": "user", "content": user_text})
-
+    # GPT interaction using the new function
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=messages
-        )
-        bot_reply = response["choices"][0]["message"]["content"]
-        state.add_gpt_interaction(user_text, bot_reply)
-
+        bot_reply = ask_gpt_with_history(state, user_text, system_prompt)
         await update.message.reply_text(f"{RECOGNIZED_PREFIX}{user_text}_", parse_mode="Markdown")
         await update.message.reply_text(bot_reply)
-
     except Exception as e:
         logging.warning(f"⚠️ GPT error for voice input from {chat_id_str}: {e}")
         await update.message.reply_text("⚠️ Щось пішло не так. Спробуй ще раз пізніше.")
