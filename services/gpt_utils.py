@@ -2,17 +2,20 @@ import logging
 import os
 import openai
 from services.user_state import UserStateManager
+from prompts.system_prompts import PROMPTS_BY_TOPIC
 
 # Load API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
-def ask_gpt_with_history(state: UserStateManager, user_input: str, system_prompt: str) -> str:
+def ask_gpt_with_history(state: UserStateManager, user_input: str) -> str:
     """
-    Generate a GPT reply using the given state, user input, and prompt.
+    Generate a GPT reply using the given state and user input.
+    Selects the appropriate system prompt based on current topic.
     Appends last 3 interactions from history for context.
     """
-    topic = state.get("topic")
+    topic = state.get("topic", "general")
+    system_prompt = PROMPTS_BY_TOPIC.get(topic, PROMPTS_BY_TOPIC["general"])
     history = state.get_gpt_history(topic)
 
     messages = [{"role": "system", "content": system_prompt}]
@@ -32,4 +35,7 @@ def ask_gpt_with_history(state: UserStateManager, user_input: str, system_prompt
         return bot_reply
     except Exception as e:
         logging.warning(f"❌ GPT error: {e}")
-        raise
+        return (
+            "На жаль, я зараз не можу дати відповідь 😔 "
+            "Спробуй, будь ласка, ще раз трохи пізніше."
+        )

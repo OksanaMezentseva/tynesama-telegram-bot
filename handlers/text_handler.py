@@ -3,7 +3,12 @@ import os
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from services.utils import get_random_affirmation, get_random_breathing_tip
+from services.utils import (
+    get_random_affirmation,
+    get_random_breathing_tip,
+    is_prompt_injection,
+    contains_pii,
+)
 from services.subscription import is_subscribed
 from services.user_state import UserStateManager
 from services.db import save_feedback
@@ -14,8 +19,6 @@ from services.button_labels import (
     BTN_TOPICS, BTN_SOLIDS, BTN_BREASTFEEDING, BTN_SLEEP, BTN_PREGNANCY, BTN_BACK, BTN_FEEDBACK
 )
 from services.text_messages import (
-    SYSTEM_PROMPT, SYSTEM_PROMPT_BREASTFEEDING, SYSTEM_PROMPT_SOLIDS,
-    SYSTEM_PROMPT_PREGNANCY, SYSTEM_PROMPT_SLEEP,
     MSG_SUBSCRIBE_REQUIRED, MSG_READY_TO_LISTEN, MSG_CHOOSE_TOPIC,
     LOGIC_BACK_TO_MAIN_MENU, REPLY_BREASTFEEDING, REPLY_SOLIDS,
     REPLY_PREGNANCY, REPLY_SLEEP, MSG_FEEDBACK_THANKS, MSG_FEEDBACK_PROMPT
@@ -39,6 +42,21 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     chat_id = update.effective_chat.id
     chat_id_str = str(chat_id)
     state = UserStateManager(chat_id_str)
+
+    # Prompt injection protection
+    if is_prompt_injection(user_input):
+        await update.message.reply_text(
+            "З міркувань безпеки я не можу відповісти на цей запит 🙈"
+        )
+        return
+
+    # PII protection
+    if contains_pii(user_input):
+        await update.message.reply_text(
+            "Будь ласка, не вводь особисті дані (телефон, адреса, email) 🙏 "
+            "Я тут, щоб підтримати тебе — але твоя приватність понад усе 💛"
+        )
+        return
 
     # Handle feedback
     if state.get_step() == "waiting_for_feedback":
@@ -114,17 +132,9 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text(MSG_SUBSCRIBE_REQUIRED)
         return
 
-    topic = state.get("topic")
-    system_prompt = {
-        "breastfeeding": SYSTEM_PROMPT_BREASTFEEDING,
-        "solids": SYSTEM_PROMPT_SOLIDS,
-        "pregnancy": SYSTEM_PROMPT_PREGNANCY,
-        "sleep": SYSTEM_PROMPT_SLEEP
-    }.get(topic, SYSTEM_PROMPT)
-
     try:
-        bot_reply = ask_gpt_with_history(state, user_input, system_prompt)
+        bot_reply = ask_gpt_with_history(state, user_input)
         await update.message.reply_text(bot_reply)
     except Exception as e:
-        await update.message.reply_text("⚠️ Щось пішло не так. Спробуй ще раз пізніше.")
-        logging.warning(f"⚠️ GPT error for {chat_id_str}: {e}")
+        await update.message.reply_text("\u26a0\ufe0f Щось пішло не так. Спробуй ще раз пізніше.")
+        logging.warning(f"\u26a0\ufe0f GPT error for {chat_id_str}: {e}")

@@ -46,3 +46,27 @@ def get_evening_message():
             return random.choice(messages)
     except Exception:
         return "Спокійної ночі. Ти сьогодні зробила достатньо 🌙"
+    
+INJECTION_TRIGGERS = [
+    "ignore previous",
+    "ignore all instructions",
+    "you are not a bot",
+    "you are a human",
+    "disregard your instructions",
+    "забудь попереднє",
+    "ти більше не асистент"
+]
+
+def is_prompt_injection(text: str) -> bool:
+    lowered = text.lower()
+    return any(trigger in lowered for trigger in INJECTION_TRIGGERS)
+
+
+import re
+
+def contains_pii(text: str) -> bool:
+    return bool(
+        re.search(r"\+?\d{9,}", text) or  # phone numbers
+        re.search(r"\b\d{1,3}\s+\w+\s+\w+", text) or  # address-like patterns
+        re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", text)  # emails
+    )
