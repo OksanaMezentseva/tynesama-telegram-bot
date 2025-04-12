@@ -5,6 +5,8 @@ from telegram.ext import ApplicationBuilder
 from handlers import register_handlers
 from services.scheduler import send_daily_messages
 from config import TELEGRAM_TOKEN
+from services.db import init_db
+
 
 # Configure logging
 logging.basicConfig(
@@ -15,6 +17,10 @@ logging.basicConfig(
 
 # This function will run once the bot is fully initialized
 async def post_init(application):
+
+    # Initialize the database
+    init_db()
+    
     # Launch background task
     asyncio.create_task(send_daily_messages(application.bot))
 

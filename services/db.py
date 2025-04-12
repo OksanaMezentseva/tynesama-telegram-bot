@@ -3,28 +3,37 @@ import json
 from datetime import datetime
 from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean, DateTime
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, scoped_session
 from config import DATABASE_URL
 
+# SQLAlchemy base class
 Base = declarative_base()
+
+# Engine and session factory (initialized once at startup)
 _engine = None
 _Session = None
 
-# Lazily initialize DB engine/session
+# Initialize database and create tables
+def init_db():
+    global _engine, _Session
+    _engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,     # automatically checks if connections are alive
+        pool_recycle=1800       # recycle connections every 30 minutes
+    )
+    session_factory = sessionmaker(bind=_engine)
+    _Session = scoped_session(session_factory)
+    Base.metadata.create_all(_engine)
+    logging.info("🗃️ Database initialized")
+
+# Get an active session (requires init_db() to be called first)
 def get_session():
     global _engine, _Session
-    if _engine is None:
-        _engine = create_engine(
-            DATABASE_URL,
-            pool_pre_ping=True,
-            pool_recycle=1800
-        )
-        _Session = sessionmaker(bind=_engine)
-        Base.metadata.create_all(_engine)
-        logging.info("🗃️ Database engine initialized")
+    if _engine is None or _Session is None:
+        raise RuntimeError("Database not initialized. Call init_db() first.")
     return _Session()
 
-# User model
+# User table model
 class User(Base):
     __tablename__ = 'users'
 
@@ -35,7 +44,7 @@ class User(Base):
     subscribed_at = Column(DateTime, default=datetime.utcnow)
     started_at = Column(DateTime, default=datetime.utcnow)
 
-# Feedback model
+# Feedback table model
 class Feedback(Base):
     __tablename__ = 'feedback'
 
@@ -44,7 +53,7 @@ class Feedback(Base):
     message = Column(Text, nullable=False)
     submitted_at = Column(DateTime, default=datetime.utcnow)
 
-# Database functions
+# Add a new user if not already in the database
 def add_user(telegram_id):
     telegram_id = str(telegram_id)
     session = get_session()
@@ -67,6 +76,7 @@ def add_user(telegram_id):
     finally:
         session.close()
 
+# Get user object by Telegram ID
 def get_user(telegram_id):
     telegram_id = str(telegram_id)
     session = get_session()
@@ -78,6 +88,7 @@ def get_user(telegram_id):
     finally:
         session.close()
 
+# Get user state as dictionary
 def get_user_state(telegram_id):
     user = get_user(telegram_id)
     if user and user.user_state:
@@ -88,6 +99,7 @@ def get_user_state(telegram_id):
             return {}
     return {}
 
+# Update the user's state
 def update_user_state(telegram_id, data: dict):
     telegram_id = str(telegram_id)
     session = get_session()
@@ -102,6 +114,7 @@ def update_user_state(telegram_id, data: dict):
     finally:
         session.close()
 
+# Update subscription status (subscribe/unsubscribe)
 def set_subscription_status(telegram_id, is_subscribed: bool):
     telegram_id = str(telegram_id)
     session = get_session()
@@ -119,6 +132,7 @@ def set_subscription_status(telegram_id, is_subscribed: bool):
     finally:
         session.close()
 
+# Get all users who are currently subscribed
 def get_all_subscribed_users():
     session = get_session()
     try:
@@ -129,6 +143,7 @@ def get_all_subscribed_users():
     finally:
         session.close()
 
+# Save feedback message from a user
 def save_feedback(telegram_id, message: str):
     telegram_id = str(telegram_id)
     session = get_session()
