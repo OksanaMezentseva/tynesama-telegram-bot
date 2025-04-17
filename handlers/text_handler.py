@@ -94,9 +94,6 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     # Talk with GPT
     if user_input == BTN_TALK:
-        if not is_subscribed(chat_id):
-            await update.message.reply_text(MSG_SUBSCRIBE_REQUIRED)
-            return
         state.set_step("waiting_for_gpt_question")
         await update.message.reply_text(MSG_READY_TO_LISTEN)
         return
@@ -189,11 +186,6 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         topic_key, reply = topics_map[user_input]
         state.set("topic", topic_key)
         await update.message.reply_text(reply)
-        return
-
-    # GPT flow
-    if not is_subscribed(chat_id):
-        await update.message.reply_text(MSG_SUBSCRIBE_REQUIRED)
         return
 
     try:
