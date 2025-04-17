@@ -1,8 +1,9 @@
 import logging
-from .command_handler import start_command, subscribe_command, unsubscribe_command, test_db
+from .command_handler import start_command, subscribe_command, unsubscribe_command, test_db, support_command
 from .text_handler import handle_text_message, choose_topic_handler
 from .voice_handler import handle_voice_message
 from telegram.ext import CommandHandler, MessageHandler, filters
+from services.button_labels import BTN_SUPPORT
 
 
 def register_handlers(app):
@@ -30,5 +31,8 @@ def register_handlers(app):
 
     app.add_handler(CommandHandler("testdb", test_db))
     logging.debug("✅ Handler registered: /testdb")
+
+    MessageHandler(filters.TEXT & filters.Regex(f"^{BTN_SUPPORT}$"), support_command)
+    logging.debug("✅ Handler registered: support_command")
 
     logging.info("✅ All handlers registered successfully.")

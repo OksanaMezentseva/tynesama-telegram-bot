@@ -1,5 +1,5 @@
 import logging
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
 from services.db import add_user, get_user, update_user_state
@@ -13,7 +13,8 @@ from services.button_labels import (
     BTN_SUBSCRIBE,
     BTN_UNSUBSCRIBE,
     BTN_TOPICS,
-    BTN_FEEDBACK
+    BTN_FEEDBACK,
+    BTN_SUPPORT
 )
 from services.text_messages import (
     GREETING_TEXT,
@@ -21,7 +22,9 @@ from services.text_messages import (
     ALREADY_SUBSCRIBED_TEXT,
     UNSUBSCRIBED_TEXT,
     ALREADY_UNSUBSCRIBED_TEXT,
-    DEFAULT_UPDATE_TEXT
+    DEFAULT_UPDATE_TEXT,
+    SUPPORT_MESSAGE,
+    DONATELLO_LINK
 )
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -59,13 +62,15 @@ async def update_reply_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
         keyboard = [
             [BTN_TALK, BTN_TOPICS],
             [BTN_BREATHING, BTN_AFFIRMATION],
-            [BTN_FEEDBACK, BTN_UNSUBSCRIBE]
+            [BTN_FEEDBACK, BTN_UNSUBSCRIBE],
+            [BTN_SUPPORT]
         ]
     else:
         keyboard = [
             [BTN_BREATHING, BTN_AFFIRMATION],
             [BTN_TOPICS],
-            [BTN_FEEDBACK, BTN_SUBSCRIBE]
+            [BTN_FEEDBACK, BTN_SUBSCRIBE],
+            [BTN_SUPPORT]
         ]
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -90,6 +95,13 @@ async def unsubscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update_reply_keyboard(update, context, message=UNSUBSCRIBED_TEXT)
     else:
         await update_reply_keyboard(update, context, message=ALREADY_UNSUBSCRIBED_TEXT)
+
+async def support_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle the support button with Donatello inline link."""
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("💛 Підтримати через Donatello", url=DONATELLO_LINK)]
+    ])
+    await update.message.reply_text(SUPPORT_MESSAGE, reply_markup=keyboard)
 
 async def test_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
     telegram_id = str(update.effective_chat.id)
