@@ -1,5 +1,5 @@
 import logging
-from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from services.db import add_user, get_user
@@ -9,13 +9,9 @@ from services.user_state import UserStateManager
 import time
 from services.button_labels import (
     BTN_TALK,
-    BTN_BREATHING,
-    BTN_AFFIRMATION,
-    BTN_SUBSCRIBE,
-    BTN_UNSUBSCRIBE,
-    BTN_TOPICS,
-    BTN_FEEDBACK,
-    BTN_SUPPORT
+    BTN_PAUSE,
+    BTN_SPACE,
+    BTN_TOPICS
 )
 from services.text_messages import (
     GREETING_TEXT,
@@ -23,9 +19,7 @@ from services.text_messages import (
     ALREADY_SUBSCRIBED_TEXT,
     UNSUBSCRIBED_TEXT,
     ALREADY_UNSUBSCRIBED_TEXT,
-    DEFAULT_UPDATE_TEXT,
-    SUPPORT_MESSAGE,
-    DONATELLO_LINK
+    DEFAULT_UPDATE_TEXT
 )
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -55,24 +49,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.info(f"✅ /start handled in total {time.time() - t0:.2f}s")
 
 async def update_reply_keyboard(update: Update, context: ContextTypes.DEFAULT_TYPE, message: str = DEFAULT_UPDATE_TEXT):
-    """Update reply keyboard based on subscription status."""
-    chat_id = str(update.effective_chat.id)
-    subscribed = is_subscribed(chat_id)
-
-    if subscribed:
-        keyboard = [
-            [BTN_TALK, BTN_TOPICS],
-            [BTN_BREATHING, BTN_AFFIRMATION],
-            [BTN_FEEDBACK, BTN_UNSUBSCRIBE],
-            [BTN_SUPPORT]
-        ]
-    else:
-        keyboard = [
-            [BTN_BREATHING, BTN_AFFIRMATION],
-            [BTN_TOPICS],
-            [BTN_FEEDBACK, BTN_SUBSCRIBE],
-            [BTN_SUPPORT]
-        ]
+    """Show the main menu keyboard."""
+    keyboard = [
+        [BTN_TALK],
+        [BTN_TOPICS],
+        [BTN_PAUSE],
+        [BTN_SPACE]
+    ]
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(message, reply_markup=reply_markup)

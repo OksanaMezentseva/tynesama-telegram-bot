@@ -1,12 +1,18 @@
 # Main menu buttons
-BTN_TALK = "💬 Хочу виговоритись"
+BTN_TALK = "💬 Виговоритись"
+BTN_TOPICS = "🧡 Обрати, що зараз хвилює"
+BTN_PAUSE = "🌿 Зробити паузу"
+BTN_SPACE = "🌼 Мій простір"  # нове меню
+
+# Pause submenu
 BTN_BREATHING = "🧘 Техніки дихання"
 BTN_AFFIRMATION = "🌸 Афірмація"
+
+# "Мій простір" submenu
 BTN_SUBSCRIBE = "💌 Підписатись"
 BTN_UNSUBSCRIBE = "❌ Відписатись"
-BTN_TOPICS = "🧡 Обрати, що зараз хвилює"
-BTN_FEEDBACK = "💌 Поділитись враженням"
 BTN_SUPPORT = "💛 Підтримати проєкт"
+BTN_FEEDBACK = "💌 Поділитись враженням"
 
 # Topic submenu
 BTN_SOLIDS = "🥣 Прикорм"

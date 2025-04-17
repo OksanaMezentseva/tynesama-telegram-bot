@@ -32,7 +32,4 @@ def register_handlers(app):
     app.add_handler(CommandHandler("testdb", test_db))
     logging.debug("✅ Handler registered: /testdb")
 
-    MessageHandler(filters.TEXT & filters.Regex(f"^{BTN_SUPPORT}$"), support_command)
-    logging.debug("✅ Handler registered: support_command")
-
     logging.info("✅ All handlers registered successfully.")
