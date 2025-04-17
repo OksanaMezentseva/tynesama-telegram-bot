@@ -66,3 +66,6 @@ SUPPORT_MESSAGE = (
 )
 
 DONATELLO_LINK = "https://donatello.to/tynesama"
+
+MONOBANK_LINK = "https://send.monobank.ua/jar/4fL6trQ39w"
+

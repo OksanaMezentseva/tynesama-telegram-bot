@@ -1,6 +1,8 @@
 import random
 import json
 import os
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+from services.text_messages import SUPPORT_MESSAGE, DONATELLO_LINK, MONOBANK_LINK
 
 DATA_DIR = "data"
 
@@ -70,3 +72,16 @@ def contains_pii(text: str) -> bool:
         re.search(r"\b\d{1,3}\s+\w+\s+\w+", text) or  # address-like patterns
         re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", text)  # emails
     )
+
+
+async def send_support_buttons(update, context):
+    """Send inline keyboard with both Donatello and Monobank support options."""
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("💳 Карткою (Monobank)", url=MONOBANK_LINK)
+        ],
+        [
+            InlineKeyboardButton("💛 Криптовалюта (Donatello)", url=DONATELLO_LINK)
+        ]
+    ])
+    await update.message.reply_text(SUPPORT_MESSAGE, reply_markup=keyboard)

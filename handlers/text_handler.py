@@ -1,13 +1,13 @@
 import logging
 import os
-from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from services.utils import (
     get_random_affirmation,
     get_random_breathing_tip,
     is_prompt_injection,
-    contains_pii,
+    contains_pii, send_support_buttons
 )
 from services.subscription import is_subscribed
 from services.user_state import UserStateManager
@@ -21,7 +21,7 @@ from services.button_labels import (
 from services.text_messages import (
     MSG_SUBSCRIBE_REQUIRED, MSG_READY_TO_LISTEN, MSG_CHOOSE_TOPIC,
     LOGIC_BACK_TO_MAIN_MENU, REPLY_BREASTFEEDING, REPLY_SOLIDS,
-    REPLY_PREGNANCY, REPLY_SLEEP, MSG_FEEDBACK_THANKS, MSG_FEEDBACK_PROMPT, SUPPORT_MESSAGE, DONATELLO_LINK
+    REPLY_PREGNANCY, REPLY_SLEEP, MSG_FEEDBACK_THANKS, MSG_FEEDBACK_PROMPT
 )
 
 ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
@@ -115,10 +115,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     # Support
     if user_input == BTN_SUPPORT:
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💛 Підтримати через Donatello", url=DONATELLO_LINK)]
-        ])
-        await update.message.reply_text(SUPPORT_MESSAGE, reply_markup=keyboard)
+        await send_support_buttons(update, context)
         return
 
     # Topic selection

@@ -2,7 +2,8 @@ import logging
 from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
-from services.db import add_user, get_user, update_user_state
+from services.db import add_user, get_user
+from services.utils import send_support_buttons
 from services.subscription import add_subscriber, remove_subscriber, is_subscribed
 from services.user_state import UserStateManager
 import time
@@ -97,11 +98,7 @@ async def unsubscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update_reply_keyboard(update, context, message=ALREADY_UNSUBSCRIBED_TEXT)
 
 async def support_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle the support button with Donatello inline link."""
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("💛 Підтримати через Donatello", url=DONATELLO_LINK)]
-    ])
-    await update.message.reply_text(SUPPORT_MESSAGE, reply_markup=keyboard)
+    await send_support_buttons(update, context)
 
 async def test_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
     telegram_id = str(update.effective_chat.id)
