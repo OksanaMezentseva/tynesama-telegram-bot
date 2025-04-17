@@ -1,6 +1,6 @@
 import logging
 import os
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
 from services.utils import (
@@ -16,12 +16,12 @@ from handlers.command_handler import subscribe_command, unsubscribe_command
 from services.gpt_utils import ask_gpt_with_history
 from services.button_labels import (
     BTN_TALK, BTN_BREATHING, BTN_AFFIRMATION, BTN_SUBSCRIBE, BTN_UNSUBSCRIBE,
-    BTN_TOPICS, BTN_SOLIDS, BTN_BREASTFEEDING, BTN_SLEEP, BTN_PREGNANCY, BTN_BACK, BTN_FEEDBACK
+    BTN_TOPICS, BTN_SOLIDS, BTN_BREASTFEEDING, BTN_SLEEP, BTN_PREGNANCY, BTN_BACK, BTN_FEEDBACK, BTN_SUPPORT
 )
 from services.text_messages import (
     MSG_SUBSCRIBE_REQUIRED, MSG_READY_TO_LISTEN, MSG_CHOOSE_TOPIC,
     LOGIC_BACK_TO_MAIN_MENU, REPLY_BREASTFEEDING, REPLY_SOLIDS,
-    REPLY_PREGNANCY, REPLY_SLEEP, MSG_FEEDBACK_THANKS, MSG_FEEDBACK_PROMPT
+    REPLY_PREGNANCY, REPLY_SLEEP, MSG_FEEDBACK_THANKS, MSG_FEEDBACK_PROMPT, SUPPORT_MESSAGE, DONATELLO_LINK
 )
 
 ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
@@ -111,6 +111,14 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         state.set_step("started")
         state.set("topic", None)
         await update_reply_keyboard(update, context, message=LOGIC_BACK_TO_MAIN_MENU)
+        return
+    
+    # Support
+    if user_input == BTN_SUPPORT:
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("💛 Підтримати через Donatello", url=DONATELLO_LINK)]
+        ])
+        await update.message.reply_text(SUPPORT_MESSAGE, reply_markup=keyboard)
         return
 
     # Topic selection
