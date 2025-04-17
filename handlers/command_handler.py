@@ -5,6 +5,7 @@ from telegram.ext import ContextTypes
 from services.db import add_user, get_user, update_user_state
 from services.subscription import add_subscriber, remove_subscriber, is_subscribed
 from services.user_state import UserStateManager
+import time
 from services.button_labels import (
     BTN_TALK,
     BTN_BREATHING,
@@ -25,13 +26,29 @@ from services.text_messages import (
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Initial /start command with greeting and keyboard."""
+    t0 = time.time()
+    logging.info("📩 /start command received")
+
     chat_id = str(update.effective_chat.id)
 
-    add_user(chat_id)
-    state = UserStateManager(chat_id)
-    state.set_step("started")
+    try:
+        t_add = time.time()
+        add_user(chat_id)
+        logging.info(f"👤 add_user() completed in {time.time() - t_add:.2f}s")
 
-    await update_reply_keyboard(update, context, message=GREETING_TEXT)
+        t_state = time.time()
+        state = UserStateManager(chat_id)
+        state.set_step("started")
+        logging.info(f"🧠 UserStateManager initialized and step set in {time.time() - t_state:.2f}s")
+
+        t_reply = time.time()
+        await update_reply_keyboard(update, context, message=GREETING_TEXT)
+        logging.info(f"📨 Reply sent in {time.time() - t_reply:.2f}s")
+
+    except Exception as e:
+        logging.error(f"❌ Error in start_command: {e}")
+
+    logging.info(f"✅ /start handled in total {time.time() - t0:.2f}s")
 
 async def update_reply_keyboard(update: Update, context: ContextTypes.DEFAULT_TYPE, message: str = DEFAULT_UPDATE_TEXT):
     """Update reply keyboard based on subscription status."""
