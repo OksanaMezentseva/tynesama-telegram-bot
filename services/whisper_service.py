@@ -19,6 +19,8 @@ def transcribe_voice(wav_file: str) -> str:
     try:
         model = get_model()
 
+        logging.info(f"📁 Transcribing file: {wav_file}")
+
         result = model.transcribe(
             wav_file,
             fp16=False,
@@ -29,7 +31,12 @@ def transcribe_voice(wav_file: str) -> str:
         text = result["text"].strip()
         detected_lang = result.get("language")
 
-        if detected_lang != "uk":
+        if not text:
+            logging.warning("🈳 Whisper returned empty text")
+
+        if not detected_lang:
+            logging.warning("⚠️ Whisper did not detect language")
+        elif detected_lang != "uk":
             logging.info(f"🌍 Whisper detected language: {detected_lang}, expected: 'uk'")
 
         return text
