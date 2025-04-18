@@ -2,7 +2,7 @@
 BTN_TALK = "💬 Виговоритись"
 BTN_TOPICS = "🧡 Обрати, що зараз хвилює"
 BTN_PAUSE = "🌿 Зробити паузу"
-BTN_SPACE = "🌼 Мій простір"  # нове меню
+BTN_SPACE = "🌼 Мій простір"
 
 # Pause submenu
 BTN_BREATHING = "🧘 Техніки дихання"
