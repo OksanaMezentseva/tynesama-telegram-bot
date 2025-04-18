@@ -51,11 +51,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def update_reply_keyboard(update: Update, context: ContextTypes.DEFAULT_TYPE, message: str = DEFAULT_UPDATE_TEXT):
     """Show the main menu keyboard."""
     keyboard = [
-        [BTN_TALK],
-        [BTN_TOPICS],
-        [BTN_PAUSE],
-        [BTN_SPACE]
-    ]
+    [BTN_TALK, BTN_TOPICS],
+    [BTN_PAUSE, BTN_SPACE]
+]
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(message, reply_markup=reply_markup)

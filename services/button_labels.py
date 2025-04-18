@@ -9,7 +9,7 @@ BTN_BREATHING = "🧘 Техніки дихання"
 BTN_AFFIRMATION = "🌸 Афірмація"
 
 # "Мій простір" submenu
-BTN_SUBSCRIBE = "💌 Підписатись"
+BTN_SUBSCRIBE = "🔔 Підписатись"
 BTN_UNSUBSCRIBE = "❌ Відписатись"
 BTN_SUPPORT = "💛 Підтримати проєкт"
 BTN_FEEDBACK = "💌 Поділитись враженням"
