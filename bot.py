@@ -28,13 +28,13 @@ async def post_init(application):
     application.job_task = asyncio.create_task(send_daily_messages(application.bot))
     logging.info(f"🚀 Background task started in {time.time() - task_start:.2f}s")
 
-    render_host = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
-    if not render_host:
-        raise RuntimeError("RENDER_EXTERNAL_HOSTNAME is not set!")
+    # render_host = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+    # if not render_host:
+    #     raise RuntimeError("RENDER_EXTERNAL_HOSTNAME is not set!")
 
-    webhook_url = f"https://{render_host}/webhook"
-    await application.bot.set_webhook(webhook_url)
-    logging.info(f"✅ Webhook manually set: {webhook_url}")
+    # webhook_url = f"https://{render_host}/webhook"
+    # await application.bot.set_webhook(webhook_url)
+    # logging.info(f"✅ Webhook manually set: {webhook_url}")
 
     logging.info(f"✅ post_init completed in {time.time() - total_start:.2f}s")
 
@@ -48,12 +48,12 @@ async def on_shutdown(application):
         except asyncio.CancelledError:
             logging.info("🛑 Background task cancelled on shutdown")
 
-RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
-if not RENDER_EXTERNAL_HOSTNAME:
-    raise RuntimeError("RENDER_EXTERNAL_HOSTNAME is not set!")
+# RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+# if not RENDER_EXTERNAL_HOSTNAME:
+#     raise RuntimeError("RENDER_EXTERNAL_HOSTNAME is not set!")
 
-WEBHOOK_PATH = "/webhook"
-WEBHOOK_URL = f"https://{RENDER_EXTERNAL_HOSTNAME}{WEBHOOK_PATH}"
+# WEBHOOK_PATH = "/webhook"
+# WEBHOOK_URL = f"https://{RENDER_EXTERNAL_HOSTNAME}{WEBHOOK_PATH}"
 
 app = (
     ApplicationBuilder()
@@ -66,11 +66,5 @@ app = (
 # Register command and message handlers
 register_handlers(app)
 
-logging.info(f"🌐 Bot running on webhook URL: {WEBHOOK_URL}")
-
-app.run_webhook(
-    listen="0.0.0.0",
-    port=int(os.environ.get("PORT", 5000)),
-    webhook_url=WEBHOOK_URL,
-    url_path=WEBHOOK_PATH
-)
+logging.info("🤖 Bot is starting with polling...")
+app.run_polling()

@@ -6,6 +6,3 @@ git+https://github.com/openai/whisper.git
 whisper
 sqlalchemy
 psycopg2-binary
-
-
-
