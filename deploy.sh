@@ -30,4 +30,7 @@ rsync -avz -e "ssh -i $KEY_PATH" \
 # 3. Copy .env file separately (it’s in .gitignore and not copied by rsync)
 scp -i $KEY_PATH $LOCAL_PROJECT_DIR/.env $REMOTE_USER@$REMOTE_IP:$REMOTE_DIR/.env
 
+# Restart bot via systemd
+ssh -i $KEY_PATH $REMOTE_USER@$REMOTE_IP "sudo systemctl restart tynesama-bot && sudo systemctl status tynesama-bot --no-pager"
+
 echo "✅ Project deployed successfully!"
