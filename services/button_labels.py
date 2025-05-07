@@ -16,7 +16,7 @@ BTN_FEEDBACK = "💌 Поділитись враженням"
 
 # Topic submenu
 BTN_SOLIDS = "🥣 Прикорм"
-BTN_BREASTFEEDING = "🤱 Про грудне вигодовування"
+BTN_BREASTFEEDING = "🍼 Про ГВ і ШВ"
 BTN_SLEEP = "👼 Сон малюка"
 BTN_PREGNANCY = "🤰 В очікуванні"
 BTN_BACK = "🔙 Назад"
