@@ -2,18 +2,21 @@ import asyncio
 import datetime
 import logging
 from telegram import Bot
+from zoneinfo import ZoneInfo
+
+KYIV_TZ = ZoneInfo("Europe/Kyiv")
 
 async def send_daily_messages(bot: Bot):
-    """Continuously sends messages at 08:00 and 21:00 to subscribed users."""
+    """Continuously sends messages at 08:00 and 21:00 Kyiv time to subscribed users."""
     logging.info("🕒 Scheduler started...")
 
     try:
         while True:
-            now = datetime.datetime.now()
+            now = datetime.datetime.now(KYIV_TZ)
             today = now.date()
 
-            next_morning = datetime.datetime.combine(today, datetime.time(8, 0))
-            next_evening = datetime.datetime.combine(today, datetime.time(21, 0))
+            next_morning = datetime.datetime.combine(today, datetime.time(8, 0), tzinfo=KYIV_TZ)
+            next_evening = datetime.datetime.combine(today, datetime.time(21, 0), tzinfo=KYIV_TZ)
 
             if now >= next_morning:
                 next_morning += datetime.timedelta(days=1)
@@ -51,5 +54,4 @@ async def send_daily_messages(bot: Bot):
 
     except asyncio.CancelledError:
         logging.info("🛑 send_daily_messages task was cancelled cleanly")
-        # Re-raise so the task exits properly
         raise
