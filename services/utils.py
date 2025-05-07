@@ -1,6 +1,7 @@
 import random
 import json
 import os
+import re
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from services.text_messages import SUPPORT_MESSAGE, DONATELLO_LINK, MONOBANK_LINK
 
@@ -63,16 +64,19 @@ def is_prompt_injection(text: str) -> bool:
     lowered = text.lower()
     return any(trigger in lowered for trigger in INJECTION_TRIGGERS)
 
-
-import re
-
 def contains_pii(text: str) -> bool:
-    return bool(
-        re.search(r"\+?\d{9,}", text) or  # phone numbers
-        re.search(r"\b\d{1,3}\s+\w+\s+\w+", text) or  # address-like patterns
-        re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", text)  # emails
-    )
+    # Check for phone numbers (10+ digits, optionally starting with '+')
+    phone_pattern = r"\+?\d{10,}"
 
+    # Check for email addresses
+    email_pattern = r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+"
+
+    if re.search(phone_pattern, text):
+        return True
+    if re.search(email_pattern, text):
+        return True
+
+    return False
 
 async def send_support_buttons(update, context):
     """Send inline keyboard with both Donatello and Monobank support options."""
