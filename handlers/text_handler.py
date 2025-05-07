@@ -188,7 +188,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     try:
-        bot_reply = ask_gpt_with_history(state, user_input)
+        bot_reply = await ask_gpt_with_history(state, user_input)
         await update.message.reply_text(bot_reply)
     except Exception as e:
         await update.message.reply_text("\u26a0\ufe0f Щось пішло не так. Спробуй ще раз пізніше.")

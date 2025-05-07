@@ -8,9 +8,9 @@ from prompts.system_prompts import PROMPTS_BY_TOPIC
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
-def ask_gpt_with_history(state: UserStateManager, user_input: str) -> str:
+async def ask_gpt_with_history(state: UserStateManager, user_input: str) -> str:
     """
-    Generate a GPT reply using the given state and user input.
+    Asynchronously generate a GPT reply using the given state and user input.
     Selects the appropriate system prompt based on current topic.
     Appends last 3 interactions from history for context.
     """
@@ -25,14 +25,18 @@ def ask_gpt_with_history(state: UserStateManager, user_input: str) -> str:
     messages.append({"role": "user", "content": user_input})
 
     try:
-        response = openai.ChatCompletion.create(
+        response = await openai.ChatCompletion.acreate(
             model="gpt-3.5-turbo",
             messages=messages,
-            timeout=10  # prevent long waits or blocking
+            max_tokens=300,
+            temperature=0.7,
+            timeout=10
         )
+
         bot_reply = response["choices"][0]["message"]["content"]
         state.add_gpt_interaction(user_input, bot_reply)
         return bot_reply
+
     except Exception as e:
         logging.warning(f"❌ GPT error: {e}")
         return (
