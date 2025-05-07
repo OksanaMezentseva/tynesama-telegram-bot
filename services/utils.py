@@ -79,13 +79,10 @@ def contains_pii(text: str) -> bool:
     return False
 
 async def send_support_buttons(update, context):
-    """Send inline keyboard with both Donatello and Monobank support options."""
+    """Send inline keyboard with Monobank support options."""
     keyboard = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("💳 Карткою (Monobank)", url=MONOBANK_LINK)
-        ],
-        [
-            InlineKeyboardButton("💛 Криптовалюта (Donatello)", url=DONATELLO_LINK)
         ]
     ])
     await update.message.reply_text(SUPPORT_MESSAGE, reply_markup=keyboard)
