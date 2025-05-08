@@ -1,5 +1,5 @@
 import logging
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from services.db import add_user, get_user
@@ -11,7 +11,8 @@ from services.button_labels import (
     BTN_TALK,
     BTN_PAUSE,
     BTN_SPACE,
-    BTN_TOPICS
+    BTN_TOPICS,
+    BTN_PROFILE_INLINE
 )
 from services.text_messages import (
     GREETING_TEXT,
@@ -19,29 +20,48 @@ from services.text_messages import (
     ALREADY_SUBSCRIBED_TEXT,
     UNSUBSCRIBED_TEXT,
     ALREADY_UNSUBSCRIBED_TEXT,
-    DEFAULT_UPDATE_TEXT
+    DEFAULT_UPDATE_TEXT,
+    PROFILE_MESSAGE,
 )
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Initial /start command with greeting and keyboard."""
+    """Handles the /start command: sends greeting, main menu, and profile setup suggestion."""
     t0 = time.time()
     logging.info("📩 /start command received")
 
     chat_id = str(update.effective_chat.id)
 
     try:
+        # Add user to the database if not exists
         t_add = time.time()
         add_user(chat_id)
         logging.info(f"👤 add_user() completed in {time.time() - t_add:.2f}s")
 
+        # Initialize user state and set initial step
         t_state = time.time()
         state = UserStateManager(chat_id)
         state.set_step("started")
         logging.info(f"🧠 UserStateManager initialized and step set in {time.time() - t_state:.2f}s")
 
-        t_reply = time.time()
-        await update_reply_keyboard(update, context, message=GREETING_TEXT)
-        logging.info(f"📨 Reply sent in {time.time() - t_reply:.2f}s")
+        # Define the main reply keyboard (bottom buttons)
+        main_keyboard = [
+            [BTN_TALK, BTN_TOPICS],
+            [BTN_PAUSE, BTN_SPACE]
+        ]
+        reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
+
+        # Send greeting with the main menu
+        await update.message.reply_text(GREETING_TEXT, reply_markup=reply_markup)
+
+        # Define inline keyboard for profile setup
+        inline_keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton(BTN_PROFILE_INLINE, callback_data="edit_profile")]
+        ])
+
+        # Send follow-up message with inline profile button
+        await update.message.reply_text(PROFILE_MESSAGE, reply_markup=inline_keyboard)
+
+        logging.info(f"📨 Replies sent in {time.time() - t_state:.2f}s")
 
     except Exception as e:
         logging.error(f"❌ Error in start_command: {e}")

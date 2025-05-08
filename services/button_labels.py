@@ -20,3 +20,6 @@ BTN_BREASTFEEDING = "🍼 Про ГВ і ШВ"
 BTN_SLEEP = "👼 Сон малюка"
 BTN_PREGNANCY = "🤰 В очікуванні"
 BTN_BACK = "🔙 Назад"
+
+# InlineButton
+BTN_PROFILE_INLINE = "👩‍👧‍👦 Заповнити мій профіль"

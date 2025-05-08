@@ -1,8 +1,8 @@
 import logging
 from .command_handler import start_command, subscribe_command, unsubscribe_command, test_db, support_command
-from .text_handler import handle_text_message, choose_topic_handler
+from .text_handler import handle_text_message, choose_topic_handler, handle_profile_callback
 from .voice_handler import handle_voice_message
-from telegram.ext import CommandHandler, MessageHandler, filters
+from telegram.ext import CommandHandler, MessageHandler, filters, CallbackQueryHandler
 from services.button_labels import BTN_SUPPORT
 
 
@@ -31,5 +31,8 @@ def register_handlers(app):
 
     app.add_handler(CommandHandler("testdb", test_db))
     logging.debug("✅ Handler registered: /testdb")
+
+    app.add_handler(CallbackQueryHandler(handle_profile_callback, pattern="^edit_profile$"))
+    logging.debug("✅ Callback handler registered: edit_profile")
 
     logging.info("✅ All handlers registered successfully.")
