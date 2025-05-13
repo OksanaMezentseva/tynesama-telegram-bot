@@ -1,6 +1,7 @@
 import logging
 from .command_handler import start_command, subscribe_command, unsubscribe_command, test_db, support_command
-from .text_handler import handle_text_message, choose_topic_handler, handle_profile_callback
+from .text_handler import handle_text_message, choose_topic_handler
+from handlers.callback_handler import handle_profile_callback
 from .voice_handler import handle_voice_message
 from telegram.ext import CommandHandler, MessageHandler, filters, CallbackQueryHandler
 from services.button_labels import BTN_SUPPORT

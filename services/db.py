@@ -53,6 +53,21 @@ class Feedback(Base):
     message = Column(Text, nullable=False)
     submitted_at = Column(DateTime, default=datetime.utcnow)
 
+# Profile table model
+class Profile(Base):
+    __tablename__ = 'profiles'
+
+    id = Column(Integer, primary_key=True)
+    telegram_id = Column(String, unique=True)
+    is_pregnant = Column(Boolean)
+    has_children = Column(Boolean)
+    children_count = Column(Integer)
+    children_ages = Column(Text)
+    country = Column(String)
+    is_breastfeeding = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 # Add a new user if not already in the database
 def add_user(telegram_id):
     telegram_id = str(telegram_id)
@@ -159,5 +174,49 @@ def save_feedback(telegram_id, message: str):
     except Exception as e:
         session.rollback()
         logging.warning(f"❌ DB error in save_feedback: {e}")
+    finally:
+        session.close()
+
+# Save or update a user's profile
+def save_profile(telegram_id: str, profile_data: dict):
+    """
+    Insert or update profile information for a given user.
+    If a profile already exists, update it. Otherwise, create a new one.
+    """
+    telegram_id = str(telegram_id)
+    session = get_session()
+    try:
+        existing_profile = session.query(Profile).filter_by(telegram_id=telegram_id).first()
+
+        if existing_profile:
+            # Update existing profile
+            existing_profile.is_pregnant = profile_data.get("is_pregnant")
+            existing_profile.has_children = profile_data.get("has_children")
+            existing_profile.children_count = profile_data.get("children_count")
+            existing_profile.children_ages = profile_data.get("children_ages")
+            existing_profile.country = profile_data.get("country")
+            existing_profile.is_breastfeeding = profile_data.get("is_breastfeeding")
+            existing_profile.updated_at = datetime.utcnow()
+            logging.info(f"🔄 Updated profile for user {telegram_id}")
+        else:
+            # Insert new profile
+            new_profile = Profile(
+                telegram_id=telegram_id,
+                is_pregnant=profile_data.get("is_pregnant"),
+                has_children=profile_data.get("has_children"),
+                children_count=profile_data.get("children_count"),
+                children_ages=profile_data.get("children_ages"),
+                country=profile_data.get("country"),
+                is_breastfeeding=profile_data.get("is_breastfeeding"),
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+            session.add(new_profile)
+            logging.info(f"🆕 Created new profile for user {telegram_id}")
+
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        logging.warning(f"❌ DB error in save_profile: {e}")
     finally:
         session.close()

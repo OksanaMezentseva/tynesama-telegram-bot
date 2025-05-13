@@ -2,7 +2,6 @@ import logging
 import os
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes
-from telegram.ext import CallbackQueryHandler
 
 from services.utils import (
     get_random_affirmation,
@@ -37,11 +36,6 @@ async def choose_topic_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(MSG_CHOOSE_TOPIC, reply_markup=reply_markup)
-
-async def handle_profile_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.message.reply_text("Функція редагування профілю незабаром зʼявиться 💛")
 
 async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_input = update.message.text.strip()
@@ -142,7 +136,12 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         state.set_step("my_space")
         await update.message.reply_text(MSG_MY_SPACE_MENU, reply_markup=reply_markup)
         return
-
+    
+    # Profile setup step handling
+    if state.get_step().startswith("profile_q"):
+        from handlers.profile_questions import handle_profile_answer
+        await handle_profile_answer(update, context)
+        return
 
     if user_input == BTN_BACK:
         step = state.get_step()

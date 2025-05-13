@@ -54,6 +54,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(GREETING_TEXT, reply_markup=reply_markup)
 
         # Define inline keyboard for profile setup
+        # Inline profile button is handled in callback_handler.py (handle_profile_callback)
         inline_keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton(BTN_PROFILE_INLINE, callback_data="edit_profile")]
         ])
