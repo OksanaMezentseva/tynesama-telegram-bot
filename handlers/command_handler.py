@@ -1,65 +1,62 @@
 import logging
-from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
+import time
+from telegram import (
+    Update, ReplyKeyboardMarkup,
+    InlineKeyboardButton, InlineKeyboardMarkup
+)
 from telegram.ext import ContextTypes
 
 from services.db import add_user, get_user
 from services.utils import send_support_buttons
+from services.reply_utils import update_reply_keyboard, get_main_keyboard
 from services.subscription import add_subscriber, remove_subscriber, is_subscribed
 from services.user_state import UserStateManager
-import time
+from handlers.profile_questions import PROFILE_QUESTIONS
+
 from services.button_labels import (
-    BTN_TALK,
-    BTN_PAUSE,
-    BTN_SPACE,
-    BTN_TOPICS,
-    BTN_PROFILE_INLINE
+    BTN_PROFILE_INLINE,
 )
+
 from services.text_messages import (
     GREETING_TEXT,
     SUBSCRIBED_TEXT,
     ALREADY_SUBSCRIBED_TEXT,
     UNSUBSCRIBED_TEXT,
     ALREADY_UNSUBSCRIBED_TEXT,
-    DEFAULT_UPDATE_TEXT,
     PROFILE_MESSAGE,
 )
 
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles the /start command: sends greeting, main menu, and profile setup suggestion."""
+    """
+    Handles /start command: registers the user, initializes state,
+    sends greeting and main menu with inline profile setup button.
+    """
     t0 = time.time()
     logging.info("📩 /start command received")
 
     chat_id = str(update.effective_chat.id)
 
     try:
-        # Add user to the database if not exists
+        # Add user to DB if not already present
         t_add = time.time()
         add_user(chat_id)
         logging.info(f"👤 add_user() completed in {time.time() - t_add:.2f}s")
 
-        # Initialize user state and set initial step
+        # Initialize user state
         t_state = time.time()
         state = UserStateManager(chat_id)
         state.set_step("started")
-        logging.info(f"🧠 UserStateManager initialized and step set in {time.time() - t_state:.2f}s")
+        logging.info(f"🧠 UserStateManager initialized in {time.time() - t_state:.2f}s")
 
-        # Define the main reply keyboard (bottom buttons)
-        main_keyboard = [
-            [BTN_TALK, BTN_TOPICS],
-            [BTN_PAUSE, BTN_SPACE]
-        ]
-        reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
-
-        # Send greeting with the main menu
+        # Send greeting with main keyboard
+        reply_markup = get_main_keyboard()
         await update.message.reply_text(GREETING_TEXT, reply_markup=reply_markup)
 
-        # Define inline keyboard for profile setup
-        # Inline profile button is handled in callback_handler.py (handle_profile_callback)
+        # Inline button to edit/fill profile
         inline_keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton(BTN_PROFILE_INLINE, callback_data="edit_profile")]
         ])
-
-        # Send follow-up message with inline profile button
         await update.message.reply_text(PROFILE_MESSAGE, reply_markup=inline_keyboard)
 
         logging.info(f"📨 Replies sent in {time.time() - t_state:.2f}s")
@@ -69,18 +66,11 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logging.info(f"✅ /start handled in total {time.time() - t0:.2f}s")
 
-async def update_reply_keyboard(update: Update, context: ContextTypes.DEFAULT_TYPE, message: str = DEFAULT_UPDATE_TEXT):
-    """Show the main menu keyboard."""
-    keyboard = [
-    [BTN_TALK, BTN_TOPICS],
-    [BTN_PAUSE, BTN_SPACE]
-]
-
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text(message, reply_markup=reply_markup)
 
 async def subscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle user subscription."""
+    """
+    Subscribes the user to daily messages.
+    """
     chat_id = str(update.effective_chat.id)
 
     if not is_subscribed(chat_id):
@@ -89,8 +79,11 @@ async def subscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update_reply_keyboard(update, context, message=ALREADY_SUBSCRIBED_TEXT)
 
+
 async def unsubscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle user unsubscription."""
+    """
+    Unsubscribes the user from daily messages.
+    """
     chat_id = str(update.effective_chat.id)
 
     if is_subscribed(chat_id):
@@ -99,10 +92,18 @@ async def unsubscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     else:
         await update_reply_keyboard(update, context, message=ALREADY_UNSUBSCRIBED_TEXT)
 
+
 async def support_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Shows inline support options (e.g., donation, links).
+    """
     await send_support_buttons(update, context)
 
+
 async def test_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Admin-only: tests DB connectivity and user data.
+    """
     telegram_id = str(update.effective_chat.id)
 
     if telegram_id != "790924168":
@@ -119,3 +120,39 @@ async def test_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     else:
         await update.message.reply_text("❌ DB not working")
+
+
+async def handle_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Shows the user's current profile and provides inline button to edit it.
+    """
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup  # ensure safe import
+    from services.button_labels import BTN_PROFILE_INLINE
+
+    telegram_id = str(update.effective_user.id)
+    state = UserStateManager(telegram_id)
+
+    # Save current step before editing so we can return after
+    state.set("previous_menu", state.get_step())
+
+    # Load profile data
+    profile_data = state.get("profile_data") or state.get("profile") or {}
+    profile_text = "📋 *Твій профайл:*\n"
+
+    filled = False
+    for q in PROFILE_QUESTIONS:
+        key = q["key"]
+        label = q["question"]
+        value = profile_data.get(key)
+        if value:
+            profile_text += f"▫️ {label} {value}\n"
+            filled = True
+
+    if not filled:
+        profile_text += "Профайл ще не заповнено."
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton(BTN_PROFILE_INLINE, callback_data="edit_profile")]
+    ])
+
+    await update.message.reply_text(profile_text, parse_mode="Markdown", reply_markup=keyboard)

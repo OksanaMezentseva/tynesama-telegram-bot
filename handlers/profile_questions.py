@@ -1,16 +1,22 @@
-from telegram import ReplyKeyboardMarkup, KeyboardButton, Update
+import logging
+from telegram import ReplyKeyboardMarkup, KeyboardButton, Message, Update
 from telegram.ext import ContextTypes
 from services.user_state import UserStateManager
+from services.reply_utils import get_main_keyboard
 from services.db import save_profile
-from handlers.command_handler import update_reply_keyboard
+from services.subscription import is_subscribed
+from services.text_messages import MSG_MY_SPACE_MENU
+from services.button_labels import (
+    BTN_FEEDBACK, BTN_SUPPORT, BTN_SUBSCRIBE, BTN_UNSUBSCRIBE, BTN_BACK, BTN_PROFILE
+)
 from services.profile_constants import (
     STATUS_PREGNANT, STATUS_HAS_CHILDREN, STATUS_BOTH, STATUS_NONE,
-    CHILDREN_COUNT_1, CHILDREN_COUNT_2, CHILDREN_COUNT_3_PLUS,
     BREASTFEEDING_YES, BREASTFEEDING_NO, BREASTFEEDING_PLAN, BREASTFEEDING_DONE,
-    COUNTRY_UA, COUNTRY_ABROAD
+    COUNTRY_UA, COUNTRY_ABROAD,
+    CHILDREN_COUNT_1, CHILDREN_COUNT_2, CHILDREN_COUNT_3_PLUS
 )
 
-# Centralized profile questions using constants
+# Profile questionnaire configuration
 PROFILE_QUESTIONS = [
     {
         "key": "status",
@@ -43,58 +49,75 @@ PROFILE_QUESTIONS = [
     }
 ]
 
-# Show next question based on progress + conditional logic
-async def send_next_profile_question(update: Update, context: ContextTypes.DEFAULT_TYPE, state: UserStateManager):
+
+async def send_next_profile_question(message: Message, context: ContextTypes.DEFAULT_TYPE, state: UserStateManager):
+    """
+    Sends the next unanswered profile question.
+    On completion, saves the profile and returns to previous menu.
+    """
+    chat_id = message.chat.id
     index = state.get("profile_progress", 0)
     profile_data = state.get("profile_data", {})
 
+    # Loop through profile questions
     while index < len(PROFILE_QUESTIONS):
         question = PROFILE_QUESTIONS[index]
         key = question["key"]
         status = profile_data.get("status")
 
-        # Skip based on logic from status
-        if status == STATUS_PREGNANT and key in {"children_count", "children_ages", "breastfeeding"}:
-            index += 1
-            continue
-        if status == STATUS_NONE and key in {"children_count", "children_ages", "breastfeeding"}:
+        # Skip questions based on user's status
+        if status in {STATUS_PREGNANT, STATUS_NONE} and key in {"children_count", "children_ages", "breastfeeding"}:
             index += 1
             continue
 
+        # Set current step and progress
         state.set_step(f"profile_q{index}")
         state.set("profile_progress", index)
 
+        # Send question
         if question["type"] == "choice":
             keyboard = ReplyKeyboardMarkup(
                 [[KeyboardButton(opt)] for opt in question["options"]],
                 resize_keyboard=True,
-                one_time_keyboard=True
+                one_time_keyboard=True,
+                input_field_placeholder="Обери відповідь 👇"
             )
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=question["question"],
-                reply_markup=keyboard
-            )
+            await context.bot.send_message(chat_id=chat_id, text=question["question"], reply_markup=keyboard)
         else:
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=question["question"]
-            )
+            await context.bot.send_message(chat_id=chat_id, text=question["question"])
 
-        return
+        return  # Wait for answer
 
-    # End of profile flow
+    # Profile complete
     state.set("profile", profile_data)
+    state.set("profile_completed", True)
     state.set_step("started")
-    save_profile(str(update.effective_chat.id), profile_data)
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="✅ Дякую! Твій профіль збережено 💛"
-    )
-    await update_reply_keyboard(update, context, message="📋 Ти повернулась до головного меню")
+    save_profile(str(chat_id), profile_data)
+    logging.info(f"✅ Profile completed and saved for {chat_id}")
 
-# Handle answer and continue
+    previous_menu = state.get("previous_menu")
+
+    if previous_menu == "my_space":
+        subscribed = is_subscribed(str(chat_id))
+        space_keyboard = [
+            [BTN_FEEDBACK, BTN_SUPPORT],
+            [BTN_PROFILE, BTN_UNSUBSCRIBE if subscribed else BTN_SUBSCRIBE],
+            [BTN_BACK]
+        ]
+        reply_markup = ReplyKeyboardMarkup(space_keyboard, resize_keyboard=True)
+        state.set_step("my_space")
+        await context.bot.send_message(chat_id=chat_id, text="✅ Твій профіль збережено 💛", reply_markup=reply_markup)
+    else:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="✅ Твій профіль збережено 💛",
+            reply_markup=get_main_keyboard()
+        )
+
 async def handle_profile_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handles user's answer and moves to the next question or ends the flow.
+    """
     user_input = update.message.text.strip()
     chat_id = str(update.effective_chat.id)
     state = UserStateManager(chat_id)
@@ -110,16 +133,17 @@ async def handle_profile_answer(update: Update, context: ContextTypes.DEFAULT_TY
     key = question["key"]
     expected_type = question["type"]
 
+    # Validate choice-type answers
     if expected_type == "choice":
         valid_options = [opt.lower() for opt in question["options"]]
         if user_input.lower() not in valid_options:
             await update.message.reply_text("Будь ласка, обери один із варіантів з клавіатури 🙏")
-            await send_next_profile_question(update, context, state)
+            await send_next_profile_question(update.message, context, state)
             return
 
+    # Save answer and proceed
     profile_data[key] = user_input
     state.set("profile_data", profile_data)
-    current_index += 1
-    state.set("profile_progress", current_index)
+    state.set("profile_progress", current_index + 1)
 
-    await send_next_profile_question(update, context, state)
+    await send_next_profile_question(update.message, context, state)

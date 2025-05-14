@@ -13,6 +13,8 @@ BTN_SUBSCRIBE = "🔔 Підписатись"
 BTN_UNSUBSCRIBE = "❌ Відписатись"
 BTN_SUPPORT = "💛 Підтримати проєкт"
 BTN_FEEDBACK = "💌 Поділитись враженням"
+BTN_PROFILE = "👩‍🍼 Мій профіль"
+
 
 # Topic submenu
 BTN_SOLIDS = "🥣 Прикорм"
