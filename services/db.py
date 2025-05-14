@@ -6,6 +6,13 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
 from config import DATABASE_URL
 
+from services.profile_constants import (
+    STATUS_PREGNANT,
+    STATUS_HAS_CHILDREN,
+    STATUS_BOTH,
+    CHILDREN_COUNT_3_PLUS
+)
+
 # SQLAlchemy base class
 Base = declarative_base()
 
@@ -181,33 +188,54 @@ def save_feedback(telegram_id, message: str):
 def save_profile(telegram_id: str, profile_data: dict):
     """
     Insert or update profile information for a given user.
-    If a profile already exists, update it. Otherwise, create a new one.
+    Converts string values like "Вагітна" to appropriate booleans.
     """
     telegram_id = str(telegram_id)
     session = get_session()
+
     try:
+        # Convert 'status' to booleans using constants
+        status = profile_data.get("status", "").strip()
+        is_pregnant = status in [STATUS_PREGNANT, STATUS_BOTH]
+        has_children = status in [STATUS_HAS_CHILDREN, STATUS_BOTH]
+
+        # Extract and normalize other fields
+        children_count = profile_data.get("children_count")
+        children_ages = profile_data.get("children_ages")
+        country = profile_data.get("country")
+        breastfeeding = profile_data.get("breastfeeding")
+
+        # Normalize children_count
+        if isinstance(children_count, str):
+            if children_count == CHILDREN_COUNT_3_PLUS:
+                children_count = 3
+            else:
+                try:
+                    children_count = int(children_count)
+                except ValueError:
+                    children_count = None
+
+        # Find and update or create profile
         existing_profile = session.query(Profile).filter_by(telegram_id=telegram_id).first()
 
         if existing_profile:
-            # Update existing profile
-            existing_profile.is_pregnant = profile_data.get("is_pregnant")
-            existing_profile.has_children = profile_data.get("has_children")
-            existing_profile.children_count = profile_data.get("children_count")
-            existing_profile.children_ages = profile_data.get("children_ages")
-            existing_profile.country = profile_data.get("country")
-            existing_profile.is_breastfeeding = profile_data.get("is_breastfeeding")
+            existing_profile.is_pregnant = is_pregnant
+            existing_profile.has_children = has_children
+            existing_profile.children_count = children_count
+            existing_profile.children_ages = children_ages
+            existing_profile.country = country
+            existing_profile.is_breastfeeding = breastfeeding
             existing_profile.updated_at = datetime.utcnow()
             logging.info(f"🔄 Updated profile for user {telegram_id}")
         else:
-            # Insert new profile
             new_profile = Profile(
                 telegram_id=telegram_id,
-                is_pregnant=profile_data.get("is_pregnant"),
-                has_children=profile_data.get("has_children"),
-                children_count=profile_data.get("children_count"),
-                children_ages=profile_data.get("children_ages"),
-                country=profile_data.get("country"),
-                is_breastfeeding=profile_data.get("is_breastfeeding"),
+                is_pregnant=is_pregnant,
+                has_children=has_children,
+                children_count=children_count,
+                children_ages=children_ages,
+                country=country,
+                is_breastfeeding=breastfeeding,
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow()
             )
@@ -215,6 +243,7 @@ def save_profile(telegram_id: str, profile_data: dict):
             logging.info(f"🆕 Created new profile for user {telegram_id}")
 
         session.commit()
+
     except Exception as e:
         session.rollback()
         logging.warning(f"❌ DB error in save_profile: {e}")

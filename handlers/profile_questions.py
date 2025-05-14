@@ -2,21 +2,27 @@ from telegram import ReplyKeyboardMarkup, KeyboardButton, Update
 from telegram.ext import ContextTypes
 from services.user_state import UserStateManager
 from services.db import save_profile
-from handlers.command_handler import update_reply_keyboard  # to return to main menu
+from handlers.command_handler import update_reply_keyboard
+from services.profile_constants import (
+    STATUS_PREGNANT, STATUS_HAS_CHILDREN, STATUS_BOTH, STATUS_NONE,
+    CHILDREN_COUNT_1, CHILDREN_COUNT_2, CHILDREN_COUNT_3_PLUS,
+    BREASTFEEDING_YES, BREASTFEEDING_NO, BREASTFEEDING_PLAN, BREASTFEEDING_DONE,
+    COUNTRY_UA, COUNTRY_ABROAD
+)
 
-# List of profile questions and metadata
+# Centralized profile questions using constants
 PROFILE_QUESTIONS = [
     {
         "key": "status",
         "question": "Чи ти зараз вагітна або маєш діток?",
         "type": "choice",
-        "options": ["Вагітна", "Є діти", "І те, й інше", "Ще ні"]
+        "options": [STATUS_PREGNANT, STATUS_HAS_CHILDREN, STATUS_BOTH, STATUS_NONE]
     },
     {
         "key": "children_count",
         "question": "Скільки у тебе діток?",
         "type": "choice",
-        "options": ["1", "2", "3+"]
+        "options": [CHILDREN_COUNT_1, CHILDREN_COUNT_2, CHILDREN_COUNT_3_PLUS]
     },
     {
         "key": "children_ages",
@@ -27,17 +33,17 @@ PROFILE_QUESTIONS = [
         "key": "breastfeeding",
         "question": "Чи ти зараз годуєш грудьми?",
         "type": "choice",
-        "options": ["Так", "Ні", "Планую", "Вже завершила"]
+        "options": [BREASTFEEDING_YES, BREASTFEEDING_NO, BREASTFEEDING_PLAN, BREASTFEEDING_DONE]
     },
     {
         "key": "country",
         "question": "Ти зараз живеш в Україні чи за кордоном?",
         "type": "choice",
-        "options": ["В Україні", "За кордоном"]
+        "options": [COUNTRY_UA, COUNTRY_ABROAD]
     }
 ]
 
-# Send the next profile question (with conditional logic)
+# Show next question based on progress + conditional logic
 async def send_next_profile_question(update: Update, context: ContextTypes.DEFAULT_TYPE, state: UserStateManager):
     index = state.get("profile_progress", 0)
     profile_data = state.get("profile_data", {})
@@ -45,22 +51,19 @@ async def send_next_profile_question(update: Update, context: ContextTypes.DEFAU
     while index < len(PROFILE_QUESTIONS):
         question = PROFILE_QUESTIONS[index]
         key = question["key"]
-
         status = profile_data.get("status")
 
-        # Logic: skip irrelevant questions based on status
-        if status == "Вагітна" and key in {"children_count", "children_ages", "breastfeeding"}:
+        # Skip based on logic from status
+        if status == STATUS_PREGNANT and key in {"children_count", "children_ages", "breastfeeding"}:
             index += 1
             continue
-        if status == "Ще ні" and key in {"children_count", "children_ages", "breastfeeding"}:
+        if status == STATUS_NONE and key in {"children_count", "children_ages", "breastfeeding"}:
             index += 1
             continue
 
-        # Update step and progress
         state.set_step(f"profile_q{index}")
         state.set("profile_progress", index)
 
-        # Send choice-based question
         if question["type"] == "choice":
             keyboard = ReplyKeyboardMarkup(
                 [[KeyboardButton(opt)] for opt in question["options"]],
@@ -73,15 +76,14 @@ async def send_next_profile_question(update: Update, context: ContextTypes.DEFAU
                 reply_markup=keyboard
             )
         else:
-            # Send free-text question
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=question["question"]
             )
 
-        return  # stop after sending one question
+        return
 
-    # End of flow
+    # End of profile flow
     state.set("profile", profile_data)
     state.set_step("started")
     save_profile(str(update.effective_chat.id), profile_data)
@@ -91,7 +93,7 @@ async def send_next_profile_question(update: Update, context: ContextTypes.DEFAU
     )
     await update_reply_keyboard(update, context, message="📋 Ти повернулась до головного меню")
 
-# Handle user input and store to profile_data
+# Handle answer and continue
 async def handle_profile_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_input = update.message.text.strip()
     chat_id = str(update.effective_chat.id)
@@ -108,7 +110,6 @@ async def handle_profile_answer(update: Update, context: ContextTypes.DEFAULT_TY
     key = question["key"]
     expected_type = question["type"]
 
-    # Validate choice-based answers
     if expected_type == "choice":
         valid_options = [opt.lower() for opt in question["options"]]
         if user_input.lower() not in valid_options:
@@ -116,13 +117,9 @@ async def handle_profile_answer(update: Update, context: ContextTypes.DEFAULT_TY
             await send_next_profile_question(update, context, state)
             return
 
-    # Save valid answer
     profile_data[key] = user_input
     state.set("profile_data", profile_data)
-
-    # Move to next step
     current_index += 1
     state.set("profile_progress", current_index)
 
-    # Continue
     await send_next_profile_question(update, context, state)

@@ -11,13 +11,37 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 async def ask_gpt_with_history(state: UserStateManager, user_input: str) -> str:
     """
     Asynchronously generate a GPT reply using the given state and user input.
-    Selects the appropriate system prompt based on current topic.
-    Appends last 3 interactions from history for context.
+    Adds profile summary (in English) to the system prompt for personalization.
     """
     topic = state.get("topic", "general")
-    system_prompt = PROMPTS_BY_TOPIC.get(topic, PROMPTS_BY_TOPIC["general"])
+    base_prompt = PROMPTS_BY_TOPIC.get(topic, PROMPTS_BY_TOPIC["general"])
     history = state.get_gpt_history(topic)
+    profile = state.get("profile", {})
 
+    # Build English summary of the user's profile
+    summary_parts = []
+
+    if profile.get("status"):
+        summary_parts.append(f"The user reported their status as: {profile['status'].lower()}.")
+
+    if profile.get("children_count"):
+        summary_parts.append(f"She has {profile['children_count']} children.")
+
+    if profile.get("children_ages"):
+        summary_parts.append(f"Their ages are: {profile['children_ages']}.")
+
+    if profile.get("breastfeeding"):
+        summary_parts.append(f"Breastfeeding status: {profile['breastfeeding'].lower()}.")
+
+    if profile.get("country"):
+        summary_parts.append(f"She currently lives in: {profile['country'].lower()}.")
+
+    profile_summary = " ".join(summary_parts)
+
+    # Combine with system prompt
+    system_prompt = f"{profile_summary} {base_prompt}".strip()
+
+    # Construct messages list
     messages = [{"role": "system", "content": system_prompt}]
     for pair in history[-3:]:
         messages.append({"role": "user", "content": pair["question"]})
