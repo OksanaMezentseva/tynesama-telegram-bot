@@ -17,6 +17,11 @@ from .command_handler import (
 from .text_handler import handle_text_message, choose_topic_handler
 from .voice_handler import handle_voice_message
 from handlers.callback_handler import handle_profile_callback
+from services.topic_choice import handle_topic_callback
+from handlers.children_ages_choice import handle_children_ages_callback
+from handlers.status_choice import handle_status_callback
+
+
 
 # 🔽 Import all button labels
 from services.button_labels import (
@@ -63,4 +68,15 @@ def register_handlers(app):
     app.add_handler(CallbackQueryHandler(handle_profile_callback, pattern="^edit_profile$"))
     logging.debug("✅ Callback handler registered: edit_profile")
 
+    app.add_handler(CallbackQueryHandler(handle_topic_callback, pattern=r"^(toggle_topic|save_topics)"))
+    logging.debug("✅ Callback handler registered: topic_choice")
+
+    # Inline callback: children ages selection
+    app.add_handler(CallbackQueryHandler(handle_children_ages_callback, pattern=r"^(toggle_age|save_ages)"))
+    logging.debug("✅ Callback handler registered: children_ages_choice")
+
+    # Inline callback: status selection
+    app.add_handler(CallbackQueryHandler(handle_status_callback, pattern=r"^(toggle_status|save_status)$"))
+    logging.debug("✅ Callback handler registered: status_choice")
+    
     logging.info("✅ All handlers registered successfully.")

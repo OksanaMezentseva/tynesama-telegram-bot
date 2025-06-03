@@ -126,7 +126,7 @@ async def handle_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Shows the user's current profile and provides inline button to edit it.
     """
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup  # ensure safe import
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
     from services.button_labels import BTN_PROFILE_INLINE
 
     telegram_id = str(update.effective_user.id)
@@ -136,20 +136,24 @@ async def handle_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     state.set("previous_menu", state.get_step())
 
     # Load profile data
-    profile_data = state.get("profile_data") or state.get("profile") or {}
-    profile_text = "📋 *Твій профайл:*\n"
-
+    profile_data = state.get_profile_data()
+    profile_text = "📋 *Твій профіль:*\n\n"
     filled = False
+
     for q in PROFILE_QUESTIONS:
         key = q["key"]
         label = q["question"]
         value = profile_data.get(key)
+
         if value:
-            profile_text += f"▫️ {label} {value}\n"
+            # Format list values as comma-separated
+            if isinstance(value, list):
+                value = ", ".join(str(v) for v in value)
+            profile_text += f"▫️ *{label}*\n{value}\n\n"
             filled = True
 
     if not filled:
-        profile_text += "Профайл ще не заповнено."
+        profile_text += "_Профіль ще не заповнено._"
 
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(BTN_PROFILE_INLINE, callback_data="edit_profile")]

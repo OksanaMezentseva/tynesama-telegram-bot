@@ -10,19 +10,16 @@ from services.button_labels import (
     BTN_FEEDBACK, BTN_SUPPORT, BTN_SUBSCRIBE, BTN_UNSUBSCRIBE, BTN_BACK, BTN_PROFILE
 )
 from services.profile_constants import (
-    STATUS_PREGNANT, STATUS_HAS_CHILDREN, STATUS_BOTH, STATUS_NONE,
-    BREASTFEEDING_YES, BREASTFEEDING_NO, BREASTFEEDING_PLAN, BREASTFEEDING_DONE,
-    COUNTRY_UA, COUNTRY_ABROAD,
     CHILDREN_COUNT_1, CHILDREN_COUNT_2, CHILDREN_COUNT_3_PLUS
 )
 
-# Profile questionnaire configuration
+# Profile questions definition
 PROFILE_QUESTIONS = [
     {
         "key": "status",
-        "question": "Чи ти зараз вагітна або маєш діток?",
-        "type": "choice",
-        "options": [STATUS_PREGNANT, STATUS_HAS_CHILDREN, STATUS_BOTH, STATUS_NONE]
+        "question": "Обери, яка в тебе ситуація зараз 💛",
+        "type": "inline_choice",  # handled via CallbackQuery
+        "options": []
     },
     {
         "key": "children_count",
@@ -32,49 +29,74 @@ PROFILE_QUESTIONS = [
     },
     {
         "key": "children_ages",
-        "question": "Скільки років або місяців кожній дитині? Напиши через кому.",
-        "type": "text"
+        "question": (
+            "У якому віковому періоді зараз твої дітки? "
+            "Можна обрати кілька варіантів, якщо діти різного віку 💛"
+        ),
+        "type": "multi_choice",
+        "options": [
+            "0–6 міс",
+            "7–12 міс",
+            "1–3 роки",
+            "4–7 років",
+            "8+ років"
+        ]
     },
     {
-        "key": "breastfeeding",
-        "question": "Чи ти зараз годуєш грудьми?",
-        "type": "choice",
-        "options": [BREASTFEEDING_YES, BREASTFEEDING_NO, BREASTFEEDING_PLAN, BREASTFEEDING_DONE]
-    },
-    {
-        "key": "country",
-        "question": "Ти зараз живеш в Україні чи за кордоном?",
-        "type": "choice",
-        "options": [COUNTRY_UA, COUNTRY_ABROAD]
+        "key": "preferred_topics",
+        "question": "Які теми тобі цікаві? Можна обрати кілька:",
+        "type": "multi_choice",
+        "options": [
+            "🤱 Грудне вигодовування",
+            "🥣 Прикорм",
+            "👼 Сон малюка",
+            "🤰 Вагітність",
+            "🧠 Розвиток дитини",
+            "😡 Істерики, емоції",
+            "💛 Емоції мами",
+            "💬 Підтримка з боку партнера",
+            "⏰ Денний режим",
+            "🦷 Прорізування зубів"
+        ]
     }
 ]
-
 
 async def send_next_profile_question(message: Message, context: ContextTypes.DEFAULT_TYPE, state: UserStateManager):
     """
     Sends the next unanswered profile question.
-    On completion, saves the profile and returns to previous menu.
+    If all questions are answered, saves profile and shows success message.
     """
     chat_id = message.chat.id
     index = state.get("profile_progress", 0)
     profile_data = state.get("profile_data", {})
 
-    # Loop through profile questions
     while index < len(PROFILE_QUESTIONS):
         question = PROFILE_QUESTIONS[index]
         key = question["key"]
-        status = profile_data.get("status")
-
-        # Skip questions based on user's status
-        if status in {STATUS_PREGNANT, STATUS_NONE} and key in {"children_count", "children_ages", "breastfeeding"}:
-            index += 1
-            continue
 
         # Set current step and progress
         state.set_step(f"profile_q{index}")
         state.set("profile_progress", index)
 
-        # Send question
+        # Inline choice: status (pregnant / has children / none)
+        if key == "status":
+            from handlers.status_choice import send_status_keyboard
+            await send_status_keyboard(chat_id, context, state)
+            return
+
+        # Multi-choice for children_ages
+        if key == "children_ages":
+            from handlers.children_ages_choice import send_children_ages_keyboard
+            await send_children_ages_keyboard(chat_id, context, state)
+            return
+
+        # Multi-choice for preferred_topics
+        if key == "preferred_topics":
+            from services.topic_choice import send_topic_selection_keyboard
+            await send_topic_selection_keyboard(chat_id, context, state)
+            return
+
+        # Regular choice-type question with ReplyKeyboard
         if question["type"] == "choice":
             keyboard = ReplyKeyboardMarkup(
                 [[KeyboardButton(opt)] for opt in question["options"]],
@@ -83,18 +105,20 @@ async def send_next_profile_question(message: Message, context: ContextTypes.DEF
                 input_field_placeholder="Обери відповідь 👇"
             )
             await context.bot.send_message(chat_id=chat_id, text=question["question"], reply_markup=keyboard)
-        else:
-            await context.bot.send_message(chat_id=chat_id, text=question["question"])
+            return
 
-        return  # Wait for answer
+        # Fallback (text-based or unsupported type)
+        await context.bot.send_message(chat_id=chat_id, text=question["question"])
+        return
 
-    # Profile complete
+    # All questions answered — save profile
     state.set("profile", profile_data)
     state.set("profile_completed", True)
     state.set_step("started")
     save_profile(str(chat_id), profile_data)
     logging.info(f"✅ Profile completed and saved for {chat_id}")
 
+    # Return to previous menu (if exists)
     previous_menu = state.get("previous_menu")
 
     if previous_menu == "my_space":
@@ -116,7 +140,7 @@ async def send_next_profile_question(message: Message, context: ContextTypes.DEF
 
 async def handle_profile_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Handles user's answer and moves to the next question or ends the flow.
+    Handles user text answer for choice-type questions (not inline).
     """
     user_input = update.message.text.strip()
     chat_id = str(update.effective_chat.id)
@@ -133,15 +157,18 @@ async def handle_profile_answer(update: Update, context: ContextTypes.DEFAULT_TY
     key = question["key"]
     expected_type = question["type"]
 
-    # Validate choice-type answers
-    if expected_type == "choice":
-        valid_options = [opt.lower() for opt in question["options"]]
-        if user_input.lower() not in valid_options:
-            await update.message.reply_text("Будь ласка, обери один із варіантів з клавіатури 🙏")
-            await send_next_profile_question(update.message, context, state)
-            return
+    # Skip inline types from here
+    if expected_type not in {"choice"}:
+        return
 
-    # Save answer and proceed
+    # Validate choice-type responses
+    valid_options = [opt.lower() for opt in question["options"]]
+    if user_input.lower() not in valid_options:
+        await update.message.reply_text("Будь ласка, обери один із варіантів з клавіатури 🙏")
+        await send_next_profile_question(update.message, context, state)
+        return
+
+    # Save answer and continue
     profile_data[key] = user_input
     state.set("profile_data", profile_data)
     state.set("profile_progress", current_index + 1)

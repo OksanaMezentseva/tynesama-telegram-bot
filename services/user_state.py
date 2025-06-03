@@ -69,3 +69,21 @@ class UserStateManager:
             topic = self.get("topic", "general")
         history = self._state.get("history", {})
         return history.get(topic, [])
+
+    # ----------------------
+    # Profile-specific helpers
+    # ----------------------
+
+    def get_profile_data(self) -> dict:
+        """Return user's profile data dictionary."""
+        return self._state.get("profile_data", {})
+
+    def set_profile_data(self, data: dict):
+        """Set and save user's profile data."""
+        self._state["profile_data"] = data
+        self._save_state()
+
+    def increment_profile_progress(self):
+        """Increment the current profile step progress counter."""
+        current = self.get("profile_progress", 0)
+        self.set("profile_progress", current + 1)
