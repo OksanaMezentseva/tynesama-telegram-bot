@@ -10,7 +10,7 @@
 * 🧘 **Breathing techniques** — randomly selected calming tips for quick mental resets.
 * 🌸 **Affirmations** — short and kind daily messages to lift the mood.
 * 💌 **Daily messages** — morning and evening texts for subscribed users.
-* 🎧 **Voice message support** — voice-to-text transcription via Whisper.
+* 🎧 **Voice message support** — voice-to-text transcription via Whisper. > ⚠️ This feature is currently under development and is not yet functional.
 * 🧡 **Topic selection** — users can choose what’s bothering them (breastfeeding, sleep, pregnancy, solids).
 * 💌 **Feedback** — moms can share their impressions or suggestions.
 
