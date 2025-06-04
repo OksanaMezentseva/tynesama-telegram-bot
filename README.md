@@ -1,6 +1,6 @@
 # 🤱 TyNeSama — Emotional Support Telegram Bot for Moms
 
-**TyNeSama** is an empathetic and supportive Telegram bot designed to help moms navigate difficult moments in their parenting journey. It offers gentle messages, voice transcription, GPT-based dialogue, and personalized interactions — all with a focus on mental health and emotional support.
+**TyNeSama** is an empathetic and supportive Telegram bot designed to help moms navigate difficult moments in their parenting journey. It offers gentle messages, voice transcription, GPT-based dialogue, user profiles, and personalized interactions — all with a focus on mental health and emotional support.
 
 ---
 
@@ -10,8 +10,12 @@
 * 🧘 **Breathing techniques** — randomly selected calming tips for quick mental resets.
 * 🌸 **Affirmations** — short and kind daily messages to lift the mood.
 * 💌 **Daily messages** — morning and evening texts for subscribed users.
-* 🎧 **Voice message support** — voice-to-text transcription via Whisper. > ⚠️ This feature is currently under development and is not yet functional.
-* 🧡 **Topic selection** — users can choose what’s bothering them (breastfeeding, sleep, pregnancy, solids).
+* 🎧 **Voice message support** — voice-to-text transcription via Whisper.
+
+  > ⚠️ This feature is currently under development and is not yet functional.
+* 👩‍👧 **Mom's profile** — the bot collects and remembers personal info like pregnancy status, number and age of children, and adapts answers accordingly.
+* 🧠 **Context-aware GPT replies** — GPT responses are tailored using the selected topic and last user interactions.
+* 🧡 **Topic selection** — users can choose what’s bothering them (e.g., breastfeeding, sleep, pregnancy, solids).
 * 💌 **Feedback** — moms can share their impressions or suggestions.
 
 ---
@@ -22,17 +26,28 @@ This project is built using a modular architecture with the following key compon
 
 ### 🗂️ `services/`
 
-* **`db.py`** – SQLAlchemy setup for user/feedback management.
-* **`user_state.py`** – stores and manages per-user state (topic, step, GPT history).
-* **`whisper_service.py`** – voice message transcription via OpenAI Whisper.
-* **`gpt_utils.py`** – GPT-3.5-turbo integration with short-term memory per topic.
-* **`subscription.py`** – subscription logic (subscribe/unsubscribe).
-* **`scheduler.py`** – sends daily messages at 08:00 and 21:00 to subscribed users.
-* **`utils.py`** – helper functions for random messages, PII and prompt injection protection.
+* **`db.py`** – SQLAlchemy setup for user and feedback storage.
+* **`user_state.py`** – manages per-user state including topic, step, and GPT interaction history.
+* **`gpt_utils.py`** – handles prompt creation and GPT-3.5-turbo API interaction.
+* **`whisper_service.py`** – transcribes voice messages using Whisper (under development).
+* **`subscription.py`** – manages user subscription/unsubscription.
+* **`scheduler.py`** – sends daily messages at 08:00 and 21:00.
+* **`utils.py`** – helper functions (random messages, PII detection, prompt injection filter).
+* **`text_messages.py`**, **`button_labels.py`** – localized UI messages and button text.
 
-### 🧾 `text_messages.py` and `button_labels.py`
+### 🧾 `handlers/`
 
-Contain all UI text and button labels to support clear interaction and localization.
+* **`command_handler.py`** – `/start` and other command logic.
+* **`callback_handler.py`** – handles inline buttons.
+* **`text_handler.py`** – handles text messages from users.
+* **`voice_handler.py`** – handles incoming voice messages.
+* **`topic_choice.py`** – logic for topic selection.
+* **`profile_questions.py`** – guides the user through profile setup (e.g., children, status).
+* **`children_count_choice.py`**, **`children_ages_choice.py`**, **`status_choice.py`** – modular profile step handlers.
+
+### 🧠 `prompts/`
+
+* **`system_prompts.py`** – predefined GPT system messages per topic.
 
 ---
 
@@ -42,9 +57,9 @@ Contain all UI text and button labels to support clear interaction and localizat
 * [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot)
 * OpenAI GPT-3.5 API
 * OpenAI Whisper (local model: `small`)
-* SQLAlchemy (SQLite or Postgres, configurable)
-* AsyncIO (for scheduling daily messages)
-* JSON-based content storage for affirmations and tips
+* SQLAlchemy (SQLite or PostgreSQL)
+* AsyncIO for scheduling
+* JSON-based static content for affirmations, tips, etc.
 
 ---
 
@@ -52,12 +67,12 @@ Contain all UI text and button labels to support clear interaction and localizat
 
 ### 1. Set environment variables
 
-Create a `.env` file or export them in your environment:
+Create a `.env` file or export the following in your environment:
 
 ```env
 TELEGRAM_BOT_TOKEN=your_telegram_token_here
 OPENAI_API_KEY=your_openai_key_here
-DATABASE_URL=sqlite:///local.db  # or PostgreSQL URI
+DATABASE_URL=sqlite:///local.db  # or use PostgreSQL URI
 ```
 
 ### 2. Install dependencies
@@ -72,11 +87,15 @@ pip install -r requirements.txt
 python bot.py
 ```
 
-To start the daily scheduler:
+To start the scheduled message loop (morning + evening messages):
 
 ```bash
 python scheduler.py
 ```
+
+### ☁️ Deployment
+
+The bot is currently hosted on **AWS EC2 (t3.micro)** and deployed using a simple bash script (`deploy.sh`).
 
 ---
 
@@ -87,20 +106,24 @@ python scheduler.py
 
 ```
 .
-├── bot.py                     # Production entry point for the bot
-├── bot_local.py               # Local/dev bot entry point
-├── config.py                  # Loads env config values
-├── deploy.sh                  # Deployment script (e.g. for Render)
-├── download_apify_data.py     # Data fetcher from external source (Apify)
-├── handlers/                  # Telegram handlers by type
+├── bot.py                     # Production entry point
+├── bot_local.py               # Local dev run entry point
+├── config.py                  # Loads .env settings
+├── deploy.sh                  # Optional deploy script
+├── download_apify_data.py     # Optional external data script
+├── handlers/                  # Telegram update handlers
 │   ├── callback_handler.py
+│   ├── children_ages_choice.py
+│   ├── children_count_choice.py
 │   ├── command_handler.py
-│   ├── profile_questions.py   # Handles user profile Q&A flow
+│   ├── profile_questions.py
+│   ├── status_choice.py
 │   ├── text_handler.py
+│   ├── topic_choice.py
 │   └── voice_handler.py
 ├── prompts/
-│   └── system_prompts.py      # System messages for GPT by topic
-├── services/                  # Main business logic and shared services
+│   └── system_prompts.py
+├── services/
 │   ├── button_labels.py
 │   ├── db.py
 │   ├── gpt_utils.py
@@ -110,20 +133,19 @@ python scheduler.py
 │   ├── scheduler.py
 │   ├── subscription.py
 │   ├── text_messages.py
-│   ├── topic_choice.py
 │   ├── user_state.py
 │   ├── utils.py
 │   └── whisper_service.py
-├── data/                      # JSON-based static content
+├── data/                      # Static content
 │   ├── affirmations.json
 │   ├── breathing_tips.json
 │   ├── morning_messages.json
 │   └── evening_messages.json
-├── .env                       # Environment variables
+├── .env
 ├── .gitignore
 ├── README.md
 ├── requirements.txt
-└── venv/                      # (local virtual environment)
+└── venv/                      # Local virtual environment (excluded)
 ```
 
 </details>
@@ -132,21 +154,21 @@ python scheduler.py
 
 ## 🔐 Safety & Privacy
 
-* Prompt injection protection via pattern matching
-* Basic PII detection (email, phone number, address)
-* All interactions are stored locally per user and not shared
+* Prompt injection protection via input filter
+* Basic PII detection (email, phone, address)
+* User state is stored securely and used only for personalizing interaction
 
 ---
 
 ## 👩‍💻 Author
 
-Created with care and empathy for moms by Oksana Mezentseva.
-Feel free to contribute or suggest improvements!
+Created with love and empathy for moms by **Oksana Mezentseva**.
+Feel free to contribute, open an issue, or suggest improvements 💛
 
 ---
 
 ## 🧪 Future Plans
 
-* RAG integration for evidence-based recommendations
-* Long-term user memory and personalization
-* Voice-based full conversation mode
+* Retrieval-Augmented Generation (RAG) for evidence-based answers
+* Persistent long-term memory and deeper personalization
+* Voice-first mode with multi-turn conversation
