@@ -132,8 +132,8 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         subscribed = is_subscribed(chat_id)
 
         space_keyboard = [
-            [BTN_FEEDBACK, BTN_SUPPORT],
-            [BTN_SUBSCRIBE if not subscribed else BTN_UNSUBSCRIBE, BTN_PROFILE],
+            [BTN_PROFILE, BTN_SUPPORT],
+            [BTN_SUBSCRIBE if not subscribed else BTN_UNSUBSCRIBE, BTN_FEEDBACK],
             [BTN_BACK]
         ]
 

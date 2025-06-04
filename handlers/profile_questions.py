@@ -24,8 +24,8 @@ PROFILE_QUESTIONS = [
     {
         "key": "children_count",
         "question": "Скільки у тебе діток?",
-        "type": "choice",
-        "options": [CHILDREN_COUNT_1, CHILDREN_COUNT_2, CHILDREN_COUNT_3_PLUS]
+        "type": "inline_choice",  # changed to inline choice for children count
+        "options": []  # options handled in handler
     },
     {
         "key": "children_ages",
@@ -84,6 +84,12 @@ async def send_next_profile_question(message: Message, context: ContextTypes.DEF
             await send_status_keyboard(chat_id, context, state)
             return
 
+        # Inline choice: children_count
+        if key == "children_count":
+            from handlers.children_count_choice import send_children_count_keyboard
+            await send_children_count_keyboard(chat_id, context, state)
+            return
+
         # Multi-choice for children_ages
         if key == "children_ages":
             from handlers.children_ages_choice import send_children_ages_keyboard
@@ -92,11 +98,11 @@ async def send_next_profile_question(message: Message, context: ContextTypes.DEF
 
         # Multi-choice for preferred_topics
         if key == "preferred_topics":
-            from services.topic_choice import send_topic_selection_keyboard
+            from handlers.topic_choice import send_topic_selection_keyboard
             await send_topic_selection_keyboard(chat_id, context, state)
             return
 
-        # Regular choice-type question with ReplyKeyboard
+        # Fallback: choice-type questions with ReplyKeyboard (if any left)
         if question["type"] == "choice":
             keyboard = ReplyKeyboardMarkup(
                 [[KeyboardButton(opt)] for opt in question["options"]],
@@ -107,7 +113,7 @@ async def send_next_profile_question(message: Message, context: ContextTypes.DEF
             await context.bot.send_message(chat_id=chat_id, text=question["question"], reply_markup=keyboard)
             return
 
-        # Fallback (text-based or unsupported type)
+        # Fallback: send question text only
         await context.bot.send_message(chat_id=chat_id, text=question["question"])
         return
 

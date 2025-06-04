@@ -4,8 +4,8 @@ from services.button_labels import BTN_TALK, BTN_TOPICS, BTN_PAUSE, BTN_SPACE
 def get_main_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [
-            [BTN_TALK, BTN_TOPICS],
-            [BTN_PAUSE, BTN_SPACE]
+            [BTN_SPACE, BTN_TALK],
+            [BTN_TOPICS, BTN_PAUSE]
         ],
         resize_keyboard=True
     )

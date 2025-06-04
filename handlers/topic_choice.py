@@ -2,6 +2,7 @@ from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from services.user_state import UserStateManager
 from handlers.profile_questions import send_next_profile_question
 
+# Ukrainian labels for topics
 TOPIC_CHOICES = {
     "breastfeeding": "🤱 Грудне вигодовування",
     "solids": "🥣 Прикорм",
@@ -20,11 +21,13 @@ def build_topic_keyboard(selected):
     for key, label in TOPIC_CHOICES.items():
         prefix = "✅" if key in selected else "⬜️"
         buttons.append([InlineKeyboardButton(f"{prefix} {label}", callback_data=f"toggle_topic:{key}")])
-    buttons.append([InlineKeyboardButton("✅ Зберегти вибір", callback_data="save_topics")])
+    # Save button with icon for better visual distinction
+    buttons.append([InlineKeyboardButton("💾 Зберегти вибір", callback_data="save_topics")])
     return InlineKeyboardMarkup(buttons)
 
 async def send_topic_selection_keyboard(chat_id, context, state):
-    selected = state.get("preferred_topics", [])
+    # Get currently selected topics from user profile data
+    selected = state.get("profile_data", {}).get("preferred_topics", [])
     keyboard = build_topic_keyboard(selected)
     await context.bot.send_message(
         chat_id=chat_id,
@@ -42,8 +45,9 @@ async def handle_topic_callback(update, context):
     selected = set(profile_data.get("preferred_topics", []))
 
     if data.startswith("toggle_topic:"):
-        topic = data.split(":")[1]
+        topic = data.split(":", 1)[1]
         if topic not in TOPIC_CHOICES:
+            # Ignore invalid topic selections
             return
 
         if topic in selected:
@@ -53,17 +57,21 @@ async def handle_topic_callback(update, context):
 
         profile_data["preferred_topics"] = list(selected)
         state.set("profile_data", profile_data)
+        # Update keyboard with new selection state
         await query.edit_message_reply_markup(reply_markup=build_topic_keyboard(selected))
 
     elif data == "save_topics":
         if not selected:
+            # Prompt user to select at least one topic
             await query.answer("Будь ласка, обери хоча б одну тему 🙏", show_alert=True)
             return
 
+        # Remove inline keyboard after saving selection
         await query.edit_message_reply_markup(reply_markup=None)
 
         profile_data["preferred_topics"] = list(selected)
         state.set("profile_data", profile_data)
+        # Proceed to the next profile question
         state.set("profile_progress", state.get("profile_progress", 0) + 1)
 
         await send_next_profile_question(update.effective_message, context, state)

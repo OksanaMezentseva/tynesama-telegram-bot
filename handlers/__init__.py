@@ -17,9 +17,10 @@ from .command_handler import (
 from .text_handler import handle_text_message, choose_topic_handler
 from .voice_handler import handle_voice_message
 from handlers.callback_handler import handle_profile_callback
-from services.topic_choice import handle_topic_callback
+from handlers.topic_choice import handle_topic_callback
 from handlers.children_ages_choice import handle_children_ages_callback
 from handlers.status_choice import handle_status_callback
+from handlers.children_count_choice import handle_children_count_callback
 
 
 
@@ -76,7 +77,10 @@ def register_handlers(app):
     logging.debug("✅ Callback handler registered: children_ages_choice")
 
     # Inline callback: status selection
-    app.add_handler(CallbackQueryHandler(handle_status_callback, pattern=r"^(toggle_status|save_status)$"))
+    app.add_handler(CallbackQueryHandler(handle_status_callback, pattern=r"^status_choice:"))
     logging.debug("✅ Callback handler registered: status_choice")
-    
+
+    app.add_handler(CallbackQueryHandler(handle_children_count_callback, pattern=r"^children_count_choice:"))
+    logging.debug("✅ Callback handler registered: children_count_choice")
+
     logging.info("✅ All handlers registered successfully.")
