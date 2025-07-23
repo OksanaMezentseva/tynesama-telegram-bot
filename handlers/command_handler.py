@@ -6,17 +6,14 @@ from telegram import (
 )
 from telegram.ext import ContextTypes
 
-from services.db import add_user, get_user
+from db.session import SessionLocal
+from repositories.user_repository import UserRepository
 from services.utils import send_support_buttons
 from services.reply_utils import update_reply_keyboard, get_main_keyboard
-from services.subscription import add_subscriber, remove_subscriber, is_subscribed
 from services.user_state import UserStateManager
 from handlers.profile_questions import PROFILE_QUESTIONS
 
-from services.button_labels import (
-    BTN_PROFILE_INLINE,
-)
-
+from services.button_labels import BTN_PROFILE_INLINE
 from services.text_messages import (
     GREETING_TEXT,
     SUBSCRIBED_TEXT,
@@ -39,9 +36,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         # Add user to DB if not already present
+        session = SessionLocal()
+        repo = UserRepository(session)
         t_add = time.time()
-        add_user(chat_id)
-        logging.info(f"👤 add_user() completed in {time.time() - t_add:.2f}s")
+        if not repo.get_by_telegram_id(chat_id):
+            repo.create(chat_id)
+            session.commit()
+        logging.info(f"👤 User checked/added in {time.time() - t_add:.2f}s")
 
         # Initialize user state
         t_state = time.time()
@@ -60,9 +61,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(PROFILE_MESSAGE, reply_markup=inline_keyboard)
 
         logging.info(f"📨 Replies sent in {time.time() - t_state:.2f}s")
-
     except Exception as e:
         logging.error(f"❌ Error in start_command: {e}")
+    finally:
+        session.close()
 
     logging.info(f"✅ /start handled in total {time.time() - t0:.2f}s")
 
@@ -73,11 +75,18 @@ async def subscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     chat_id = str(update.effective_chat.id)
 
-    if not is_subscribed(chat_id):
-        add_subscriber(chat_id)
-        await update_reply_keyboard(update, context, message=SUBSCRIBED_TEXT)
-    else:
-        await update_reply_keyboard(update, context, message=ALREADY_SUBSCRIBED_TEXT)
+    session = SessionLocal()
+    try:
+        repo = UserRepository(session)
+        user = repo.get_by_telegram_id(chat_id)
+        if user and not user.is_subscribed:
+            repo.set_subscription(chat_id, True)
+            session.commit()
+            await update_reply_keyboard(update, context, message=SUBSCRIBED_TEXT)
+        else:
+            await update_reply_keyboard(update, context, message=ALREADY_SUBSCRIBED_TEXT)
+    finally:
+        session.close()
 
 
 async def unsubscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -86,11 +95,18 @@ async def unsubscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     """
     chat_id = str(update.effective_chat.id)
 
-    if is_subscribed(chat_id):
-        remove_subscriber(chat_id)
-        await update_reply_keyboard(update, context, message=UNSUBSCRIBED_TEXT)
-    else:
-        await update_reply_keyboard(update, context, message=ALREADY_UNSUBSCRIBED_TEXT)
+    session = SessionLocal()
+    try:
+        repo = UserRepository(session)
+        user = repo.get_by_telegram_id(chat_id)
+        if user and user.is_subscribed:
+            repo.set_subscription(chat_id, False)
+            session.commit()
+            await update_reply_keyboard(update, context, message=UNSUBSCRIBED_TEXT)
+        else:
+            await update_reply_keyboard(update, context, message=ALREADY_UNSUBSCRIBED_TEXT)
+    finally:
+        session.close()
 
 
 async def support_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -111,31 +127,36 @@ async def test_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⛔️ You are not allowed to run this command.")
         return
 
-    add_user(telegram_id)
-    user = get_user(telegram_id)
+    session = SessionLocal()
+    try:
+        repo = UserRepository(session)
+        if not repo.get_by_telegram_id(telegram_id):
+            repo.create(telegram_id)
+            session.commit()
 
-    if user:
-        await update.message.reply_text(
-            f"✅ DB works!\nUser ID: {user.telegram_id}\nSubscribed: {user.is_subscribed}"
-        )
-    else:
-        await update.message.reply_text("❌ DB not working")
+        user = repo.get_by_telegram_id(telegram_id)
+
+        if user:
+            await update.message.reply_text(
+                f"✅ DB works!\nUser ID: {user.telegram_id}\nSubscribed: {user.is_subscribed}"
+            )
+        else:
+            await update.message.reply_text("❌ DB not working")
+    finally:
+        session.close()
 
 
 async def handle_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Shows the user's current profile and provides inline button to edit it.
     """
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-    from services.button_labels import BTN_PROFILE_INLINE
-
     telegram_id = str(update.effective_user.id)
     state = UserStateManager(telegram_id)
 
     # Save current step before editing so we can return after
     state.set("previous_menu", state.get_step())
 
-    # Load profile data
+    # Load profile data from state
     profile_data = state.get_profile_data()
     profile_text = "📋 *Твій профіль:*\n\n"
     filled = False
@@ -146,7 +167,6 @@ async def handle_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         value = profile_data.get(key)
 
         if value:
-            # Format list values as comma-separated
             if isinstance(value, list):
                 value = ", ".join(str(v) for v in value)
             profile_text += f"▫️ *{label}*\n{value}\n\n"

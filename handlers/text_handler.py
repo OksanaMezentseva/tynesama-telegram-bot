@@ -12,7 +12,8 @@ from services.utils import (
 )
 from services.subscription import is_subscribed
 from services.user_state import UserStateManager
-from services.db import save_feedback
+from db.session import SessionLocal
+from repositories.feedback_repository import FeedbackRepository
 from services.reply_utils import update_reply_keyboard  # ✅ Correct import to avoid circular dependency
 from handlers.command_handler import subscribe_command, unsubscribe_command
 from services.gpt_utils import ask_gpt_with_history
@@ -69,7 +70,17 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     # 💬 Feedback flow
     if state.get_step() == "waiting_for_feedback":
-        save_feedback(chat_id_str, user_input)
+        session = SessionLocal()
+        try:
+            repo = FeedbackRepository(session)
+            repo.save(chat_id_str, user_input)
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            logging.warning(f"❌ Failed to save feedback from {chat_id_str}: {e}")
+        finally:
+            session.close()
+
         state.set_step("started")
         await update.message.reply_text(MSG_FEEDBACK_THANKS)
         if ADMIN_CHAT_ID:

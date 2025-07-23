@@ -1,6 +1,7 @@
 import json
 import logging
-from services.db import get_user, update_user_state
+from db.session import SessionLocal
+from repositories.user_repository import UserRepository
 
 class UserStateManager:
     def __init__(self, telegram_id: str):
@@ -8,18 +9,39 @@ class UserStateManager:
         self._state = self._load_state()
 
     def _load_state(self) -> dict:
-        user = get_user(self.telegram_id)
-        if user and user.user_state:
-            try:
-                return json.loads(user.user_state)
-            except json.JSONDecodeError:
-                logging.warning(f"⚠️ Failed to decode state for user {self.telegram_id}")
-                return {}
+        """
+        Load the user's saved state from the database and parse as JSON.
+        """
+        session = SessionLocal()
+        try:
+            repo = UserRepository(session)
+            user = repo.get_by_telegram_id(self.telegram_id)
+            if user and user.user_state:
+                try:
+                    return json.loads(user.user_state)
+                except json.JSONDecodeError:
+                    logging.warning(f"⚠️ Failed to decode state for user {self.telegram_id}")
+        except Exception as e:
+            logging.error(f"❌ Error loading state for {self.telegram_id}: {e}")
+        finally:
+            session.close()
         return {}
 
     def _save_state(self):
-        update_user_state(self.telegram_id, self._state)
-        logging.debug(f"💾 State saved for user {self.telegram_id}")
+        """
+        Save the current state dictionary back to the database.
+        """
+        session = SessionLocal()
+        try:
+            repo = UserRepository(session)
+            repo.update_state(self.telegram_id, json.dumps(self._state))
+            session.commit()
+            logging.debug(f"💾 State saved for user {self.telegram_id}")
+        except Exception as e:
+            session.rollback()
+            logging.warning(f"❌ DB error in _save_state: {e}")
+        finally:
+            session.close()
 
     def get_state(self) -> dict:
         return self._state
@@ -42,19 +64,19 @@ class UserStateManager:
         self.set("step", step)
 
     def add_gpt_interaction(self, question: str, reply: str):
+        """
+        Add the latest GPT interaction to the state history.
+        """
         topic = self.get("topic", "general")
 
-        # Get current history dictionary
         history_by_topic = self._state.get("history", {})
         topic_history = history_by_topic.get(topic, [])
 
-        # Append new interaction
         topic_history.append({
             "question": question,
             "reply": reply
         })
 
-        # Update full history and state
         history_by_topic[topic] = topic_history
         self._state["history"] = history_by_topic
         self._state["last_gpt_reply"] = reply
@@ -65,6 +87,9 @@ class UserStateManager:
         logging.debug(f"🧠 GPT interaction added for user {self.telegram_id}, topic: {topic}")
 
     def get_gpt_history(self, topic: str = None):
+        """
+        Return the last GPT interactions for the current topic.
+        """
         if topic is None:
             topic = self.get("topic", "general")
         history = self._state.get("history", {})

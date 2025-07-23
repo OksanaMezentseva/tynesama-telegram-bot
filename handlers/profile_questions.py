@@ -1,10 +1,13 @@
 import logging
 from telegram import ReplyKeyboardMarkup, KeyboardButton, Message, Update
 from telegram.ext import ContextTypes
+
+from db.session import SessionLocal
+from repositories.profile_repository import ProfileRepository
+from repositories.user_repository import UserRepository
+
 from services.user_state import UserStateManager
 from services.reply_utils import get_main_keyboard
-from services.db import save_profile
-from services.subscription import is_subscribed
 from services.text_messages import MSG_MY_SPACE_MENU
 from services.button_labels import (
     BTN_FEEDBACK, BTN_SUPPORT, BTN_SUBSCRIBE, BTN_UNSUBSCRIBE, BTN_BACK, BTN_PROFILE
@@ -18,14 +21,14 @@ PROFILE_QUESTIONS = [
     {
         "key": "status",
         "question": "Обери, яка в тебе ситуація зараз 💛",
-        "type": "inline_choice",  # handled via CallbackQuery
+        "type": "inline_choice",
         "options": []
     },
     {
         "key": "children_count",
         "question": "Скільки у тебе діток?",
-        "type": "inline_choice",  # changed to inline choice for children count
-        "options": []  # options handled in handler
+        "type": "inline_choice",
+        "options": []
     },
     {
         "key": "children_ages",
@@ -35,11 +38,8 @@ PROFILE_QUESTIONS = [
         ),
         "type": "multi_choice",
         "options": [
-            "0–6 міс",
-            "7–12 міс",
-            "1–3 роки",
-            "4–7 років",
-            "8+ років"
+            "0–6 міс", "7–12 міс", "1–3 роки",
+            "4–7 років", "8+ років"
         ]
     },
     {
@@ -47,19 +47,14 @@ PROFILE_QUESTIONS = [
         "question": "Які теми тобі цікаві? Можна обрати кілька:",
         "type": "multi_choice",
         "options": [
-            "🤱 Грудне вигодовування",
-            "🥣 Прикорм",
-            "👼 Сон малюка",
-            "🤰 Вагітність",
-            "🧠 Розвиток дитини",
-            "😡 Істерики, емоції",
-            "💛 Емоції мами",
-            "💬 Підтримка з боку партнера",
-            "⏰ Денний режим",
-            "🦷 Прорізування зубів"
+            "🤱 Грудне вигодовування", "🥣 Прикорм", "👼 Сон малюка",
+            "🤰 Вагітність", "🧠 Розвиток дитини", "😡 Істерики, емоції",
+            "💛 Емоції мами", "💬 Підтримка з боку партнера",
+            "⏰ Денний режим", "🦷 Прорізування зубів"
         ]
     }
 ]
+
 
 async def send_next_profile_question(message: Message, context: ContextTypes.DEFAULT_TYPE, state: UserStateManager):
     """
@@ -78,31 +73,27 @@ async def send_next_profile_question(message: Message, context: ContextTypes.DEF
         state.set_step(f"profile_q{index}")
         state.set("profile_progress", index)
 
-        # Inline choice: status (pregnant / has children / none)
         if key == "status":
             from handlers.status_choice import send_status_keyboard
             await send_status_keyboard(chat_id, context, state)
             return
 
-        # Inline choice: children_count
         if key == "children_count":
             from handlers.children_count_choice import send_children_count_keyboard
             await send_children_count_keyboard(chat_id, context, state)
             return
 
-        # Multi-choice for children_ages
         if key == "children_ages":
             from handlers.children_ages_choice import send_children_ages_keyboard
             await send_children_ages_keyboard(chat_id, context, state)
             return
 
-        # Multi-choice for preferred_topics
         if key == "preferred_topics":
             from handlers.topic_choice import send_topic_selection_keyboard
             await send_topic_selection_keyboard(chat_id, context, state)
             return
 
-        # Fallback: choice-type questions with ReplyKeyboard (if any left)
+        # ReplyKeyboard fallback
         if question["type"] == "choice":
             keyboard = ReplyKeyboardMarkup(
                 [[KeyboardButton(opt)] for opt in question["options"]],
@@ -113,22 +104,39 @@ async def send_next_profile_question(message: Message, context: ContextTypes.DEF
             await context.bot.send_message(chat_id=chat_id, text=question["question"], reply_markup=keyboard)
             return
 
-        # Fallback: send question text only
         await context.bot.send_message(chat_id=chat_id, text=question["question"])
         return
 
-    # All questions answered — save profile
+    # ✅ All questions answered — save profile
     state.set("profile", profile_data)
     state.set("profile_completed", True)
     state.set_step("started")
-    save_profile(str(chat_id), profile_data)
-    logging.info(f"✅ Profile completed and saved for {chat_id}")
 
-    # Return to previous menu (if exists)
+    # Save profile to database using repository
+    session = SessionLocal()
+    try:
+        profile_repo = ProfileRepository(session)
+        profile_repo.save(str(chat_id), profile_data)
+        session.commit()
+        logging.info(f"✅ Profile completed and saved for {chat_id}")
+    except Exception as e:
+        session.rollback()
+        logging.warning(f"❌ Failed to save profile for {chat_id}: {e}")
+    finally:
+        session.close()
+
+    # Return to previous menu
     previous_menu = state.get("previous_menu")
 
     if previous_menu == "my_space":
-        subscribed = is_subscribed(str(chat_id))
+        session = SessionLocal()
+        try:
+            user_repo = UserRepository(session)
+            user = user_repo.get_by_telegram_id(str(chat_id))
+            subscribed = user.is_subscribed if user else False
+        finally:
+            session.close()
+
         space_keyboard = [
             [BTN_FEEDBACK, BTN_SUPPORT],
             [BTN_PROFILE, BTN_UNSUBSCRIBE if subscribed else BTN_SUBSCRIBE],
@@ -143,6 +151,7 @@ async def send_next_profile_question(message: Message, context: ContextTypes.DEF
             text="✅ Твій профіль збережено 💛",
             reply_markup=get_main_keyboard()
         )
+
 
 async def handle_profile_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -167,14 +176,14 @@ async def handle_profile_answer(update: Update, context: ContextTypes.DEFAULT_TY
     if expected_type not in {"choice"}:
         return
 
-    # Validate choice-type responses
+    # Validate keyboard answer
     valid_options = [opt.lower() for opt in question["options"]]
     if user_input.lower() not in valid_options:
         await update.message.reply_text("Будь ласка, обери один із варіантів з клавіатури 🙏")
         await send_next_profile_question(update.message, context, state)
         return
 
-    # Save answer and continue
+    # Save answer to state
     profile_data[key] = user_input
     state.set("profile_data", profile_data)
     state.set("profile_progress", current_index + 1)
